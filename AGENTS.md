@@ -13,3 +13,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## 拉取代码与开工
+
+收到同步/拉取/开工任务时，先读取 [Codex拉取代码与开工规范](docs/integration/Codex拉取代码与开工规范.md)。当前默认开发基线为各仓最新 origin/main；核实实际仓库和未提交改动后安全快进，保留其他窗口工作。仅拉取不自动授权安装、数据库迁移或重启；数据库和环境按任务授权另行核实。三个仓库分别更新，结果按文档模板报告，不自行合 main 或部署。
