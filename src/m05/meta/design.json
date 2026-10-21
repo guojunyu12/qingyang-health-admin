@@ -1,0 +1,2634 @@
+{
+  "title": "轻养 M05 独立交付设计评审",
+  "version": "M05-DESIGN-1.2",
+  "date": "2026-10-21",
+  "contract": "QY-MYSQL-1.0.0",
+  "sql_sha256": "64ec33a66c813321d12a7bbc29eff4d3981d6d3f3eacf6fc1eb7f9265efd3c56",
+  "phase_gate": {
+    "active_phase": 7,
+    "status": "awaiting_human_review",
+    "human_approved": false,
+    "next_phase_started": false,
+    "previous_phase_approved": true,
+    "previous_phase_approved_at": "2026-10-21",
+    "self_test_passed": true
+  },
+  "phases": [
+    {
+      "id": 1,
+      "title": "完整设计与双端界面预览",
+      "deliverable": "H5和后台可交互原型、接口、数据库映射、公共依赖与验收矩阵",
+      "gate": "设计静态检查通过，用户人工评审确认",
+      "status": "人工检查通过（2026-10-21）"
+    },
+    {
+      "id": 2,
+      "title": "独立运行基础",
+      "deliverable": "H5 与后台外壳、双 API 入口、MySQL、测试身份和公共运行层",
+      "gate": "空库初始化、双用户隔离、后台拒绝普通用户、生产禁用测试入口",
+      "status": "人工检查通过（2026-10-21）"
+    },
+    {
+      "id": 3,
+      "title": "积分内核与我的页面",
+      "deliverable": "零余额开户、四类任务、签到、流水、公共积分端口",
+      "gate": "积分与来源同事务、去重、跨日、删除不重置、账本对账",
+      "status": "人工检查通过（2026-10-21）"
+    },
+    {
+      "id": 4,
+      "title": "活动预约与基础社区",
+      "deliverable": "活动后台、发现预约、签到、公开资料、屏蔽举报",
+      "gate": "最后一席并发、时间冲突、取消重约、整场取消、隐私和审核",
+      "status": "人工检查通过（2026-10-21）"
+    },
+    {
+      "id": 5,
+      "title": "数字权益兑换与补偿",
+      "deliverable": "权益后台、兑换、履约 Worker、库存和退款",
+      "gate": "末库存并发、价格版本、日限额、未知不退款、退款仅一次",
+      "status": "人工检查通过（2026-10-21）"
+    },
+    {
+      "id": 6,
+      "title": "通知与后台功能补齐",
+      "deliverable": "通知收件箱、运营消息、投递记录、素材和后台查询完善",
+      "gate": "指定接收人、批次去重、重试、账号隔离、内容发布同步",
+      "status": "人工检查通过（2026-10-21）"
+    },
+    {
+      "id": 7,
+      "title": "独立验收与整合交付",
+      "deliverable": "全链路、异常恢复、构建启动、整合说明",
+      "gate": "无其他模块进程完成独立用例，真实外部依赖另列集成验收",
+      "status": "开发与自测完成，等待人工检查"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "R01",
+      "title": "测试身份与权限",
+      "phase": 2,
+      "pages": [
+        "H00",
+        "A00"
+      ],
+      "tables": [
+        "users",
+        "user_roles",
+        "user_sessions"
+      ],
+      "rule": "本地固定 A/B 与管理员，后端生成测试会话；普通用户不能声明角色，未登录写操作 401；集成替换 M01 身份端口。",
+      "tests": [
+        "T01",
+        "T02",
+        "T03"
+      ],
+      "endpoints": [
+        "D01",
+        "D02"
+      ]
+    },
+    {
+      "id": "R02",
+      "title": "零余额开户和积分查询",
+      "phase": 3,
+      "pages": [
+        "H01",
+        "A05"
+      ],
+      "tables": [
+        "point_accounts"
+      ],
+      "rule": "新账户和累计均为 0；ensureAccountInTransaction 与建号同事务，查询不借用演示资产。",
+      "tests": [
+        "T04"
+      ],
+      "endpoints": [
+        "B27",
+        "E10"
+      ]
+    },
+    {
+      "id": "R03",
+      "title": "签到和四类任务",
+      "phase": 3,
+      "pages": [
+        "H01",
+        "H02",
+        "A05"
+      ],
+      "tables": [
+        "point_task_definitions",
+        "point_task_awards",
+        "point_accounts",
+        "point_ledger"
+      ],
+      "rule": "签到/饮水/记餐/课程训练开发分值为 10/5/10/20；当前日真实来源核验；80% 为训练开发门槛，规则版本变化不重置资格。",
+      "tests": [
+        "T05",
+        "T06",
+        "T07",
+        "T08",
+        "T09",
+        "T10",
+        "T11"
+      ],
+      "endpoints": [
+        "B28",
+        "B32",
+        "E12",
+        "E13",
+        "D04"
+      ]
+    },
+    {
+      "id": "R04",
+      "title": "追加式账本与查询端口",
+      "phase": 3,
+      "pages": [
+        "H02",
+        "A05"
+      ],
+      "tables": [
+        "point_ledger",
+        "point_accounts"
+      ],
+      "rule": "余额=正向累计-负向累计=SUM(delta)；流水和资格不可任意改删；PointsQueryPort 提供余额、任务、连续签到。",
+      "tests": [
+        "T12",
+        "T13"
+      ],
+      "endpoints": [
+        "B29",
+        "E11"
+      ]
+    },
+    {
+      "id": "R05",
+      "title": "权益浏览和后台管理",
+      "phase": 5,
+      "pages": [
+        "H03",
+        "A04"
+      ],
+      "tables": [
+        "point_rewards"
+      ],
+      "rule": "数字权益草稿、编辑、发布和归档；价格、库存、日限额和版本由服务端决定；订单历史不随编辑变化。",
+      "tests": [
+        "T14"
+      ],
+      "endpoints": [
+        "B13",
+        "B14",
+        "B15",
+        "B33",
+        "E07",
+        "E08",
+        "E09"
+      ]
+    },
+    {
+      "id": "R06",
+      "title": "兑换与订单查询",
+      "phase": 5,
+      "pages": [
+        "H03",
+        "H04",
+        "A06"
+      ],
+      "tables": [
+        "point_redemptions",
+        "point_rewards",
+        "point_accounts",
+        "point_ledger"
+      ],
+      "rule": "quantity=1，版本不符 REWARD_CHANGED；同日所有订单状态计入尝试限额；扣分、库存、订单、流水、outbox 同事务。",
+      "tests": [
+        "T15",
+        "T16",
+        "T17",
+        "T18"
+      ],
+      "endpoints": [
+        "B30",
+        "B31",
+        "E14"
+      ]
+    },
+    {
+      "id": "R07",
+      "title": "异步履约和补偿",
+      "phase": 5,
+      "pages": [
+        "H04",
+        "A06"
+      ],
+      "tables": [
+        "point_redemptions",
+        "point_rewards",
+        "point_accounts",
+        "point_ledger"
+      ],
+      "rule": "未知保持 pending；确定最终失败才一次原额退款和恢复库存；迟到成功不能覆盖 refunded；兑换码加密，只向本人受控返回。",
+      "tests": [
+        "T19",
+        "T20",
+        "T21",
+        "T22"
+      ],
+      "endpoints": [
+        "E15",
+        "E16",
+        "D05"
+      ]
+    },
+    {
+      "id": "R08",
+      "title": "活动内容和场次管理",
+      "phase": 4,
+      "pages": [
+        "H05",
+        "H06",
+        "A01",
+        "A02"
+      ],
+      "tables": [
+        "activities",
+        "activity_slots"
+      ],
+      "rule": "活动与场次分开；具体日期地点和报名/取消窗口；草稿不可发现；容量不能小于占用数；有预约后开始/结束时间不能静默修改。",
+      "tests": [
+        "T23",
+        "T24"
+      ],
+      "endpoints": [
+        "B01",
+        "B02",
+        "B03",
+        "B05",
+        "B06",
+        "B07",
+        "B08",
+        "E01",
+        "E02",
+        "E03",
+        "E05"
+      ]
+    },
+    {
+      "id": "R09",
+      "title": "预约取消与重约",
+      "phase": 4,
+      "pages": [
+        "H06",
+        "H07",
+        "H08",
+        "A03"
+      ],
+      "tables": [
+        "activities",
+        "activity_slots",
+        "activity_bookings",
+        "booking_events"
+      ],
+      "rule": "同用户同场一条记录；canceled 可重约并更换快照；attended/no_show 不可重约；时间重叠按半开区间判断；重复取消不重复释放。",
+      "tests": [
+        "T25",
+        "T26",
+        "T27",
+        "T28"
+      ],
+      "endpoints": [
+        "B21",
+        "B22",
+        "B23",
+        "B24",
+        "E06"
+      ]
+    },
+    {
+      "id": "R10",
+      "title": "现场签到和场次关闭",
+      "phase": 4,
+      "pages": [
+        "H08",
+        "A02",
+        "A03"
+      ],
+      "tables": [
+        "activities",
+        "activity_slots",
+        "activity_bookings",
+        "booking_events"
+      ],
+      "rule": "管理员签到及系统 no_show；整场取消只释放实际 confirmed 数；保留 attended/no_show 占用，通知事务外投递。",
+      "tests": [
+        "T29",
+        "T30"
+      ],
+      "endpoints": [
+        "B09",
+        "B10",
+        "E04"
+      ]
+    },
+    {
+      "id": "R11",
+      "title": "公开资料与参与者隐私",
+      "phase": 4,
+      "pages": [
+        "H06",
+        "H09"
+      ],
+      "tables": [
+        "community_profiles",
+        "activity_bookings"
+      ],
+      "rule": "participantVisibility 默认 hidden；discoverable 默认 false；参与者公开与个人主页公开分开同意；公开接口不输出健康或联系方式。",
+      "tests": [
+        "T31",
+        "T32",
+        "T33"
+      ],
+      "endpoints": [
+        "B04",
+        "B17",
+        "B25",
+        "B26"
+      ]
+    },
+    {
+      "id": "R12",
+      "title": "屏蔽举报和后台审核",
+      "phase": 4,
+      "pages": [
+        "H09",
+        "H10",
+        "A07"
+      ],
+      "tables": [
+        "user_blocks",
+        "community_reports"
+      ],
+      "rule": "双向屏蔽过滤；举报一次性处理和审计；禁用用户调用公共账号管理端口，禁用活动由 M05 处理并关闭预约。",
+      "tests": [
+        "T34",
+        "T35"
+      ],
+      "endpoints": [
+        "B11",
+        "B12",
+        "B16",
+        "B18",
+        "B19",
+        "B20"
+      ]
+    },
+    {
+      "id": "R13",
+      "title": "业务通知和运营消息",
+      "phase": 6,
+      "pages": [
+        "H11",
+        "A08"
+      ],
+      "tables": [
+        "outbox_events",
+        "notifications",
+        "notification_deliveries"
+      ],
+      "rule": "预约/取消/兑换事件落 outbox；运营通知固定接收人快照，每批次每用户最多一次；本地收件箱与真实外部投递分开标识。",
+      "tests": [
+        "T36",
+        "T37",
+        "T38",
+        "T39"
+      ],
+      "endpoints": [
+        "E19",
+        "E20",
+        "E21",
+        "E22",
+        "E23",
+        "E24",
+        "E25",
+        "S02",
+        "S03"
+      ]
+    },
+    {
+      "id": "R14",
+      "title": "我的页面跨组装配",
+      "phase": 3,
+      "pages": [
+        "H01"
+      ],
+      "tables": [],
+      "rule": "M05 负责排版；账号摘要、健康档案与收藏使用可替换接口；独立模式展示明确的开发占位，不复制其他业务。",
+      "tests": [
+        "T40"
+      ],
+      "endpoints": [
+        "S01"
+      ]
+    },
+    {
+      "id": "R15",
+      "title": "素材管理和审计",
+      "phase": 6,
+      "pages": [
+        "A01",
+        "A04",
+        "A09"
+      ],
+      "tables": [
+        "media_assets",
+        "audit_logs"
+      ],
+      "rule": "封面与头像通过 MediaPort；本地仅受控图片素材、禁止任意 URL；管理员写操作记录操作者、资源、时间与必要变更。",
+      "tests": [
+        "T41"
+      ],
+      "endpoints": [
+        "E18",
+        "S04",
+        "S05",
+        "S06"
+      ]
+    },
+    {
+      "id": "R16",
+      "title": "独立测试和整合交付",
+      "phase": 7,
+      "pages": [
+        "D01"
+      ],
+      "tables": [],
+      "rule": "保留公共契约、固定 fixture IDs、SQL SHA；只有业务代码和迁移合并，不合并六个开发库数据；明确真实服务与适配器状态。",
+      "tests": [
+        "T42",
+        "T43"
+      ],
+      "endpoints": [
+        "E17",
+        "S07",
+        "D03"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "id": "H00",
+      "title": "测试身份入口",
+      "path": "/dev/identity",
+      "phase": 2,
+      "content": "A、B、管理员、退出；同一会话切换清缓存，双浏览器支持并发",
+      "requirements": [
+        "R01"
+      ]
+    },
+    {
+      "id": "H01",
+      "title": "我的",
+      "path": "/profile",
+      "phase": 3,
+      "content": "账号摘要、0 初始余额、签到、任务、预约/兑换/社区入口；档案和收藏开发占位",
+      "requirements": [
+        "R02",
+        "R03",
+        "R14"
+      ]
+    },
+    {
+      "id": "H02",
+      "title": "积分任务与流水",
+      "path": "/points",
+      "phase": 3,
+      "content": "日期筛选、任务状态、连续签到、分页流水；历史只读",
+      "requirements": [
+        "R03",
+        "R04"
+      ]
+    },
+    {
+      "id": "H03",
+      "title": "数字权益和确认",
+      "path": "/points/rewards",
+      "phase": 5,
+      "content": "商品、所需积分、库存、日限额、确认弹层；价格变化必须重新确认",
+      "requirements": [
+        "R05",
+        "R06"
+      ]
+    },
+    {
+      "id": "H04",
+      "title": "我的兑换与订单详情",
+      "path": "/redemptions",
+      "phase": 5,
+      "content": "待处理、已完成、已退款；本人兑换码；未知结果查询不重复创建",
+      "requirements": [
+        "R06",
+        "R07"
+      ]
+    },
+    {
+      "id": "H05",
+      "title": "活动发现",
+      "path": "/activities",
+      "phase": 4,
+      "content": "分类与日期筛选、最近场次、无活动状态",
+      "requirements": [
+        "R08"
+      ]
+    },
+    {
+      "id": "H06",
+      "title": "活动详情与预约确认",
+      "path": "/activities/:id",
+      "phase": 4,
+      "content": "时间地点、场次、容量、取消截止、默认隐藏身份、公开参与者",
+      "requirements": [
+        "R08",
+        "R09",
+        "R11"
+      ]
+    },
+    {
+      "id": "H07",
+      "title": "我的预约",
+      "path": "/bookings",
+      "phase": 4,
+      "content": "按状态筛选、分页、当前场次与预约快照入口",
+      "requirements": [
+        "R09"
+      ]
+    },
+    {
+      "id": "H08",
+      "title": "预约详情",
+      "path": "/bookings/:id",
+      "phase": 4,
+      "content": "当前状态、预约时快照、取消/重约、主办方取消原因、版本冲突刷新",
+      "requirements": [
+        "R09",
+        "R10"
+      ]
+    },
+    {
+      "id": "H09",
+      "title": "社区资料与公开主页",
+      "path": "/community",
+      "phase": 4,
+      "content": "简介、是否允许被发现、公开主页；隐藏或屏蔽资源返回不可见",
+      "requirements": [
+        "R11",
+        "R12"
+      ]
+    },
+    {
+      "id": "H10",
+      "title": "屏蔽与举报",
+      "path": "/community/safety",
+      "phase": 4,
+      "content": "屏蔽名单、取消屏蔽、举报表单及提交结果",
+      "requirements": [
+        "R12"
+      ]
+    },
+    {
+      "id": "H11",
+      "title": "消息收件箱",
+      "path": "/messages",
+      "phase": 6,
+      "content": "列表、未读、详情、标记已读；明确本地测试通道",
+      "requirements": [
+        "R13"
+      ]
+    },
+    {
+      "id": "A00",
+      "title": "管理员入口与总览",
+      "path": "/admin",
+      "phase": 2,
+      "content": "测试管理员入口、业务导航；概览计数随对应业务阶段启用",
+      "requirements": [
+        "R01"
+      ]
+    },
+    {
+      "id": "A01",
+      "title": "活动管理",
+      "path": "/admin/activities",
+      "phase": 4,
+      "content": "列表、搜索、草稿编辑、封面、发布、归档；已发布内容保存与历史快照分开",
+      "requirements": [
+        "R08",
+        "R15"
+      ]
+    },
+    {
+      "id": "A02",
+      "title": "场次管理",
+      "path": "/admin/slots",
+      "phase": 4,
+      "content": "具体时间、容量、报名窗口、取消窗口、整场取消原因",
+      "requirements": [
+        "R08",
+        "R10"
+      ]
+    },
+    {
+      "id": "A03",
+      "title": "报名与现场签到",
+      "path": "/admin/bookings",
+      "phase": 4,
+      "content": "按活动场次筛选、预约状态、现场签到；不提供任意改用户状态按钮",
+      "requirements": [
+        "R09",
+        "R10"
+      ]
+    },
+    {
+      "id": "A04",
+      "title": "数字权益管理",
+      "path": "/admin/rewards",
+      "phase": 5,
+      "content": "草稿、图片、分值、库存、日限额、发布归档、版本冲突提示",
+      "requirements": [
+        "R05",
+        "R15"
+      ]
+    },
+    {
+      "id": "A05",
+      "title": "积分规则与账本查询",
+      "path": "/admin/points",
+      "phase": 3,
+      "content": "四种规则和版本、账号对账、流水查询；无直接改余额入口",
+      "requirements": [
+        "R02",
+        "R03",
+        "R04"
+      ]
+    },
+    {
+      "id": "A06",
+      "title": "兑换订单与履约",
+      "path": "/admin/redemptions",
+      "phase": 5,
+      "content": "状态、脱敏详情、确认供应商结果、处理记录；不开放未知状态强制退款",
+      "requirements": [
+        "R06",
+        "R07"
+      ]
+    },
+    {
+      "id": "A07",
+      "title": "举报审核",
+      "path": "/admin/reports",
+      "phase": 4,
+      "content": "待处理、已处理、驳回/禁用目标、必填处置说明",
+      "requirements": [
+        "R12"
+      ]
+    },
+    {
+      "id": "A08",
+      "title": "消息与发送记录",
+      "path": "/admin/messages",
+      "phase": 6,
+      "content": "运营草稿、指定接收用户、预览、发送、逐接收人状态及重试",
+      "requirements": [
+        "R13"
+      ]
+    },
+    {
+      "id": "A09",
+      "title": "素材与操作记录",
+      "path": "/admin/assets",
+      "phase": 6,
+      "content": "受控素材上传和选择；审计查询仅展示 M05 相关操作",
+      "requirements": [
+        "R15"
+      ]
+    },
+    {
+      "id": "D01",
+      "title": "开发测试工具箱",
+      "path": "/dev/scenarios",
+      "phase": 2,
+      "content": "身份与环境状态先交；来源数据、履约场景、时钟分别在第 3/5 阶段启用",
+      "requirements": [
+        "R16"
+      ]
+    }
+  ],
+  "tables": [
+    {
+      "name": "point_accounts",
+      "title": "积分账户",
+      "phase": 3,
+      "constraints": "余额和累计、version；user 唯一、非负",
+      "owner": "M05"
+    },
+    {
+      "name": "point_task_definitions",
+      "title": "任务规则",
+      "phase": 3,
+      "constraints": "固定四个 code、scope、分值、rule_version",
+      "owner": "M05"
+    },
+    {
+      "name": "point_task_awards",
+      "title": "奖励资格",
+      "phase": 3,
+      "constraints": "user/task/day/scope 唯一；删除来源不释放资格",
+      "owner": "M05"
+    },
+    {
+      "name": "point_ledger",
+      "title": "积分流水",
+      "phase": 3,
+      "constraints": "追加式；user/event 唯一；reversal_of 唯一并限制同用户",
+      "owner": "M05"
+    },
+    {
+      "name": "point_rewards",
+      "title": "数字权益",
+      "phase": 5,
+      "constraints": "数字类型、价格、stock、daily_limit、发布状态和版本",
+      "owner": "M05"
+    },
+    {
+      "name": "point_redemptions",
+      "title": "兑换订单",
+      "phase": 5,
+      "constraints": "标题/价格/版本快照、履约状态、加密兑换码",
+      "owner": "M05"
+    },
+    {
+      "name": "activities",
+      "title": "活动",
+      "phase": 4,
+      "constraints": "内容、地点、封面、公开与发布状态、版本",
+      "owner": "M05"
+    },
+    {
+      "name": "activity_slots",
+      "title": "场次",
+      "phase": 4,
+      "constraints": "开始结束、报名取消窗口、capacity/booked_count、版本",
+      "owner": "M05"
+    },
+    {
+      "name": "activity_bookings",
+      "title": "预约",
+      "phase": 4,
+      "constraints": "user/slot 唯一、状态、可见性、活动场次快照、版本",
+      "owner": "M05"
+    },
+    {
+      "name": "booking_events",
+      "title": "预约动作",
+      "phase": 4,
+      "constraints": "create/rebook/cancel/host_cancel/checkin/no_show，追加式",
+      "owner": "M05"
+    },
+    {
+      "name": "community_profiles",
+      "title": "公开资料",
+      "phase": 4,
+      "constraints": "user 唯一、简介、discoverable 默认 false、版本",
+      "owner": "M05"
+    },
+    {
+      "name": "user_blocks",
+      "title": "屏蔽关系",
+      "phase": 4,
+      "constraints": "user/blocked_user 唯一，不允许自屏蔽",
+      "owner": "M05"
+    },
+    {
+      "name": "community_reports",
+      "title": "举报",
+      "phase": 4,
+      "constraints": "多态 target 校验、审核结论、说明和操作者",
+      "owner": "M05"
+    }
+  ],
+  "endpoints": [
+    {
+      "id": "B01",
+      "kind": "baseline",
+      "method": "GET",
+      "path": "/activities",
+      "title": "浏览已发布的活动",
+      "input": "Query：`category?,startDate?,endDate?` + 分页",
+      "output": "published Activity，含 nextSlot；日期成对传，最多 90 天",
+      "source": "原文独立接口",
+      "requirement": "R08",
+      "phase": 4,
+      "auth": "public",
+      "status": "design"
+    },
+    {
+      "id": "B02",
+      "kind": "baseline",
+      "method": "GET",
+      "path": "/activities/{id}",
+      "title": "查看活动详情",
+      "input": "uuid",
+      "output": "Activity 详情及未来可见场次摘要",
+      "source": "原文独立接口",
+      "requirement": "R08",
+      "phase": 4,
+      "auth": "public",
+      "status": "design"
+    },
+    {
+      "id": "B03",
+      "kind": "baseline",
+      "method": "GET",
+      "path": "/activities/{id}/slots",
+      "title": "查看活动场次列表",
+      "input": "`startDate,endDate` + 分页",
+      "output": "Slot 列表，按 startAt,id 正序",
+      "source": "原文独立接口",
+      "requirement": "R08",
+      "phase": 4,
+      "auth": "public",
+      "status": "design"
+    },
+    {
+      "id": "B04",
+      "kind": "baseline",
+      "method": "GET",
+      "path": "/activity-slots/{id}/participants",
+      "title": "查看场次公开参与者",
+      "input": "uuid + 分页",
+      "output": "仅公开且未被屏蔽的 `{userId,nickname,avatarUrl}`；不返回手机、健康或情绪数据",
+      "source": "原文独立接口",
+      "requirement": "R11",
+      "phase": 4,
+      "auth": "user",
+      "status": "design"
+    },
+    {
+      "id": "B05",
+      "kind": "baseline",
+      "method": "POST",
+      "path": "/admin/activities",
+      "title": "后台创建活动草稿",
+      "input": "Activity 可写字段；创建 draft；`POST .../{id}/publish` 发布",
+      "output": "参见请求/返回栏及本组实施说明",
+      "source": "原文独立接口",
+      "requirement": "R08",
+      "phase": 4,
+      "auth": "admin",
+      "status": "design"
+    },
+    {
+      "id": "B06",
+      "kind": "baseline",
+      "method": "POST",
+      "path": "/admin/activities/{id}/publish",
+      "title": "后台发布活动",
+      "input": "Path活动id；Body：version:int；管理员",
+      "output": "已校验内容的published Activity DTO",
+      "source": "原文简写发布接口展开",
+      "requirement": "R08",
+      "phase": 4,
+      "auth": "admin",
+      "status": "design"
+    },
+    {
+      "id": "B07",
+      "kind": "baseline",
+      "method": "POST",
+      "path": "/admin/activities/{id}/slots",
+      "title": "后台创建活动场次",
+      "input": "startAt/endAt、capacity、报名/取消时间；返回 Slot",
+      "output": "参见请求/返回栏及本组实施说明",
+      "source": "原文独立接口",
+      "requirement": "R08",
+      "phase": 4,
+      "auth": "admin",
+      "status": "design"
+    },
+    {
+      "id": "B08",
+      "kind": "baseline",
+      "method": "PATCH",
+      "path": "/admin/activity-slots/{id}",
+      "title": "后台修改场次容量与时间窗",
+      "input": "version、capacity、报名/取消时间；capacity 不得小于 bookedCount；有预约后的时间变更应走场次取消重建，避免静默改约",
+      "output": "参见请求/返回栏及本组实施说明",
+      "source": "原文独立接口",
+      "requirement": "R08",
+      "phase": 4,
+      "auth": "admin",
+      "status": "design"
+    },
+    {
+      "id": "B09",
+      "kind": "baseline",
+      "method": "POST",
+      "path": "/admin/activity-slots/{id}/cancel",
+      "title": "后台取消指定活动场次",
+      "input": "version:int必填；reason:string(1—200)；取消场次与confirmed预约，异步通知。",
+      "output": "参见请求/返回栏及本组实施说明",
+      "source": "原文独立接口",
+      "requirement": "R10",
+      "phase": 4,
+      "auth": "admin",
+      "status": "design"
+    },
+    {
+      "id": "B10",
+      "kind": "baseline",
+      "method": "POST",
+      "path": "/admin/bookings/{id}/check-in",
+      "title": "后台确认活动现场签到",
+      "input": "version:int必填；现场签到，服务端检查场次、时间窗、操作者和预约状态。",
+      "output": "参见请求/返回栏及本组实施说明",
+      "source": "原文独立接口",
+      "requirement": "R10",
+      "phase": 4,
+      "auth": "admin",
+      "status": "design"
+    },
+    {
+      "id": "B11",
+      "kind": "baseline",
+      "method": "GET",
+      "path": "/admin/community/reports",
+      "title": "后台查看举报审核队列",
+      "input": "status + 分页；返回审核任务",
+      "output": "参见请求/返回栏及本组实施说明",
+      "source": "原文独立接口",
+      "requirement": "R12",
+      "phase": 4,
+      "auth": "admin",
+      "status": "design"
+    },
+    {
+      "id": "B12",
+      "kind": "baseline",
+      "method": "POST",
+      "path": "/admin/community/reports/{id}/resolve",
+      "title": "后台处理举报并记录结果",
+      "input": "`resolution:'dismiss/disable_target',note:string(1–1000)`；记录审计结果",
+      "output": "参见请求/返回栏及本组实施说明",
+      "source": "原文独立接口",
+      "requirement": "R12",
+      "phase": 4,
+      "auth": "admin",
+      "status": "design"
+    },
+    {
+      "id": "B13",
+      "kind": "baseline",
+      "method": "POST",
+      "path": "/admin/points/rewards",
+      "title": "后台创建积分权益草稿",
+      "input": "title、description、costPoints、stock、dailyLimit、fulfillmentType；创建 draft；`POST .../{id}/publish` 发布",
+      "output": "参见请求/返回栏及本组实施说明",
+      "source": "原文独立接口",
+      "requirement": "R05",
+      "phase": 5,
+      "auth": "admin",
+      "status": "design",
+      "implementationStatus": "implemented",
+      "runtimePath": "/api/v1/admin/points/rewards"
+    },
+    {
+      "id": "B14",
+      "kind": "baseline",
+      "method": "PATCH",
+      "path": "/admin/points/rewards/{id}",
+      "title": "后台修改积分权益",
+      "input": "version 与上述可变字段；递增版本、保留订单快照",
+      "output": "参见请求/返回栏及本组实施说明",
+      "source": "原文独立接口",
+      "requirement": "R05",
+      "phase": 5,
+      "auth": "admin",
+      "status": "design",
+      "implementationStatus": "implemented",
+      "runtimePath": "/api/v1/admin/points/rewards/{id}"
+    },
+    {
+      "id": "B15",
+      "kind": "baseline",
+      "method": "POST",
+      "path": "/admin/points/rewards/{id}/publish",
+      "title": "后台发布积分权益",
+      "input": "Path权益id；Body：version:int；管理员",
+      "output": "已校验履约配置的published Reward DTO",
+      "source": "原文简写发布接口展开",
+      "requirement": "R05",
+      "phase": 5,
+      "auth": "admin",
+      "status": "design",
+      "implementationStatus": "implemented",
+      "runtimePath": "/api/v1/admin/points/rewards/{id}/publish"
+    },
+    {
+      "id": "B16",
+      "kind": "baseline",
+      "method": "POST",
+      "path": "/community/reports",
+      "title": "举报活动或用户",
+      "input": "`targetType:'activity/user',targetId:uuid,reason:'spam/harassment/misleading/other',description?:string(0–1000)`",
+      "output": "201，`{id,status:'pending'}`；审核结果不泄露被举报人私有信息",
+      "source": "原文独立接口",
+      "requirement": "R12",
+      "phase": 4,
+      "auth": "user",
+      "status": "design"
+    },
+    {
+      "id": "B17",
+      "kind": "baseline",
+      "method": "GET",
+      "path": "/community/users/{id}",
+      "title": "查看用户公开社区资料",
+      "input": "user uuid",
+      "output": "`{id,nickname,avatarUrl,bio?}`，仅公开资料；被屏蔽/禁用返回 404",
+      "source": "原文独立接口",
+      "requirement": "R11",
+      "phase": 4,
+      "auth": "user",
+      "status": "design"
+    },
+    {
+      "id": "B18",
+      "kind": "baseline",
+      "method": "GET",
+      "path": "/me/blocks",
+      "title": "查看本人屏蔽的用户",
+      "input": "分页",
+      "output": "我屏蔽的公开资料列表",
+      "source": "原文独立接口",
+      "requirement": "R12",
+      "phase": 4,
+      "auth": "user",
+      "status": "design"
+    },
+    {
+      "id": "B19",
+      "kind": "baseline",
+      "method": "DELETE",
+      "path": "/me/blocks/{userId}",
+      "title": "取消屏蔽指定用户",
+      "input": "uuid",
+      "output": "204",
+      "source": "原文独立接口",
+      "requirement": "R12",
+      "phase": 4,
+      "auth": "user",
+      "status": "design"
+    },
+    {
+      "id": "B20",
+      "kind": "baseline",
+      "method": "PUT",
+      "path": "/me/blocks/{userId}",
+      "title": "屏蔽指定用户",
+      "input": "无 Body",
+      "output": "`{userId,blocked:true}`；幂等",
+      "source": "原文独立接口",
+      "requirement": "R12",
+      "phase": 4,
+      "auth": "user",
+      "status": "design"
+    },
+    {
+      "id": "B21",
+      "kind": "baseline",
+      "method": "GET",
+      "path": "/me/bookings",
+      "title": "查看本人活动预约列表",
+      "input": "`status?:枚举` + 分页",
+      "output": "我的预约，含活动及场次快照",
+      "source": "原文独立接口",
+      "requirement": "R09",
+      "phase": 4,
+      "auth": "user",
+      "status": "design"
+    },
+    {
+      "id": "B22",
+      "kind": "baseline",
+      "method": "POST",
+      "path": "/me/bookings",
+      "title": "预约活动场次",
+      "input": "`slotId:uuid,participantVisibility?:'hidden/public'=hidden`",
+      "output": "201，Booking；同场已预约返回已有预约，不重复占名额",
+      "source": "原文独立接口",
+      "requirement": "R09",
+      "phase": 4,
+      "auth": "user",
+      "status": "design"
+    },
+    {
+      "id": "B23",
+      "kind": "baseline",
+      "method": "GET",
+      "path": "/me/bookings/{id}",
+      "title": "查看本人活动预约详情",
+      "input": "uuid",
+      "output": "BookingDto；slot为当前场次，activitySnapshot/slotSnapshot为预约时快照，二者明确区分。",
+      "source": "原文独立接口",
+      "requirement": "R09",
+      "phase": 4,
+      "auth": "user",
+      "status": "design"
+    },
+    {
+      "id": "B24",
+      "kind": "baseline",
+      "method": "POST",
+      "path": "/me/bookings/{id}/cancel",
+      "title": "取消本人活动预约",
+      "input": "version:int必填；reason?:string(0—200)。",
+      "output": "200，取消后的 Booking；重复取消返回当前结果",
+      "source": "原文独立接口",
+      "requirement": "R09",
+      "phase": 4,
+      "auth": "user",
+      "status": "design"
+    },
+    {
+      "id": "B25",
+      "kind": "baseline",
+      "method": "GET",
+      "path": "/me/community-profile",
+      "title": "查看本人社区资料设置",
+      "input": "已认证本人",
+      "output": "CommunityProfileDto\\|null；未设置为null",
+      "source": "本轮补齐",
+      "requirement": "R11",
+      "phase": 4,
+      "auth": "user",
+      "status": "design"
+    },
+    {
+      "id": "B26",
+      "kind": "baseline",
+      "method": "PUT",
+      "path": "/me/community-profile",
+      "title": "保存本人社区资料设置",
+      "input": "CommunityProfileInput：bio:null\\|string≤200、discoverable:boolean、version:int；首建0",
+      "output": "CommunityProfileDto；建成version1，过期409",
+      "source": "本轮补齐",
+      "requirement": "R11",
+      "phase": 4,
+      "auth": "user",
+      "status": "design"
+    },
+    {
+      "id": "B27",
+      "kind": "baseline",
+      "method": "GET",
+      "path": "/me/points/account",
+      "title": "查看本人积分账户",
+      "input": "无",
+      "output": "Account",
+      "source": "原文独立接口",
+      "requirement": "R02",
+      "phase": 3,
+      "auth": "user",
+      "status": "design",
+      "implementationStatus": "implemented",
+      "runtimeContract": "contracts/phase-03-runtime.json"
+    },
+    {
+      "id": "B28",
+      "kind": "baseline",
+      "method": "POST",
+      "path": "/me/points/check-in",
+      "title": "完成每日积分签到",
+      "input": "无 Body，业务日由服务端取当前日",
+      "output": "`{businessDate,alreadyCompleted,awards:[],account}`；重复签到返回 200、alreadyCompleted=true",
+      "source": "原文独立接口",
+      "requirement": "R03",
+      "phase": 3,
+      "auth": "user",
+      "status": "design",
+      "implementationStatus": "implemented",
+      "runtimeContract": "contracts/phase-03-runtime.json"
+    },
+    {
+      "id": "B29",
+      "kind": "baseline",
+      "method": "GET",
+      "path": "/me/points/ledger",
+      "title": "查看本人积分收支明细",
+      "input": "`startDate?,endDate?` + 分页",
+      "output": "Ledger 列表，createdAt DESC,id DESC",
+      "source": "原文独立接口",
+      "requirement": "R04",
+      "phase": 3,
+      "auth": "user",
+      "status": "design",
+      "implementationStatus": "implemented",
+      "runtimeContract": "contracts/phase-03-runtime.json"
+    },
+    {
+      "id": "B30",
+      "kind": "baseline",
+      "method": "GET",
+      "path": "/me/points/redemptions",
+      "title": "查看本人积分兑换记录",
+      "input": "分页",
+      "output": "兑换订单；含 status、fulfillmentStatus、code?",
+      "source": "原文独立接口",
+      "requirement": "R06",
+      "phase": 5,
+      "auth": "user",
+      "status": "design",
+      "implementationStatus": "implemented",
+      "runtimePath": "/api/v1/me/points/redemptions"
+    },
+    {
+      "id": "B31",
+      "kind": "baseline",
+      "method": "POST",
+      "path": "/me/points/redemptions",
+      "title": "用积分申请兑换权益",
+      "input": "`rewardId:uuid,quantity:int=1,expectedRewardVersion:int`，首版数量仅支持 1",
+      "output": "201，`{id,status,costPoints,rewardTitle,createdAt,account}`；价格、库存、余额均服务端校验",
+      "source": "原文独立接口",
+      "requirement": "R06",
+      "phase": 5,
+      "auth": "user",
+      "status": "design",
+      "implementationStatus": "implemented",
+      "runtimePath": "/api/v1/me/points/redemptions"
+    },
+    {
+      "id": "B32",
+      "kind": "baseline",
+      "method": "GET",
+      "path": "/me/points/tasks",
+      "title": "查看指定日期的积分任务",
+      "input": "`date?:date=今天`",
+      "output": "`{date,items:Task[]}`；历史只读",
+      "source": "原文独立接口",
+      "requirement": "R03",
+      "phase": 3,
+      "auth": "user",
+      "status": "design",
+      "implementationStatus": "implemented",
+      "runtimeContract": "contracts/phase-03-runtime.json"
+    },
+    {
+      "id": "B33",
+      "kind": "baseline",
+      "method": "GET",
+      "path": "/points/rewards",
+      "title": "浏览已发布的积分权益",
+      "input": "分页",
+      "output": "`{id,title,description,imageUrl?,costPoints,stock,status,dailyLimit,fulfillmentType,version}`；仅 published",
+      "source": "原文独立接口",
+      "requirement": "R05",
+      "phase": 5,
+      "auth": "public",
+      "status": "design",
+      "implementationStatus": "implemented",
+      "runtimePath": "/api/v1/points/rewards"
+    },
+    {
+      "id": "E01",
+      "kind": "extension",
+      "method": "GET",
+      "path": "/admin/activities",
+      "title": "活动后台列表",
+      "input": "q?,status?,cursor?,limit?",
+      "output": "Activity 列表，含草稿与归档",
+      "requirement": "R08",
+      "phase": 4,
+      "auth": "admin",
+      "status": "proposed"
+    },
+    {
+      "id": "E02",
+      "kind": "extension",
+      "method": "GET",
+      "path": "/admin/activities/{id}",
+      "title": "活动编辑详情",
+      "input": "id:uuid",
+      "output": "含 version 的完整 Activity 编辑 DTO",
+      "requirement": "R08",
+      "phase": 4,
+      "auth": "admin",
+      "status": "proposed"
+    },
+    {
+      "id": "E03",
+      "kind": "extension",
+      "method": "PATCH",
+      "path": "/admin/activities/{id}",
+      "title": "编辑活动内容",
+      "input": "version,title?,category?,description?,coverAssetId?,locationName?,address?,latitude?,longitude?",
+      "output": "Activity；有预约后地点改变也须新活动/场次，防止静默换地点",
+      "requirement": "R08",
+      "phase": 4,
+      "auth": "admin",
+      "status": "proposed"
+    },
+    {
+      "id": "E04",
+      "kind": "extension",
+      "method": "POST",
+      "path": "/admin/activities/{id}/archive",
+      "title": "归档并关闭活动",
+      "input": "version,reason:string(1..200)",
+      "output": "禁止新预约；关闭未结束场次，稳定顺序处理，必要时显示处理中",
+      "requirement": "R10",
+      "phase": 4,
+      "auth": "admin",
+      "status": "proposed"
+    },
+    {
+      "id": "E05",
+      "kind": "extension",
+      "method": "GET",
+      "path": "/admin/activities/{id}/slots",
+      "title": "后台场次列表",
+      "input": "startDate?,endDate?,status?,cursor?,limit?",
+      "output": "Slot 列表，包括已取消和已完成",
+      "requirement": "R08",
+      "phase": 4,
+      "auth": "admin",
+      "status": "proposed"
+    },
+    {
+      "id": "E06",
+      "kind": "extension",
+      "method": "GET",
+      "path": "/admin/bookings",
+      "title": "报名名单",
+      "input": "activityId?,slotId?,status?,cursor?,limit?",
+      "output": "脱敏报名条目；不返回健康数据或手机号",
+      "requirement": "R09",
+      "phase": 4,
+      "auth": "admin",
+      "status": "proposed"
+    },
+    {
+      "id": "E07",
+      "kind": "extension",
+      "method": "GET",
+      "path": "/admin/points/rewards",
+      "title": "权益后台列表",
+      "input": "q?,status?,cursor?,limit?",
+      "output": "Reward 列表，含草稿及归档",
+      "requirement": "R05",
+      "phase": 5,
+      "auth": "admin",
+      "status": "proposed",
+      "implementationStatus": "implemented",
+      "runtimePath": "/api/v1/admin/points/rewards"
+    },
+    {
+      "id": "E08",
+      "kind": "extension",
+      "method": "GET",
+      "path": "/admin/points/rewards/{id}",
+      "title": "权益编辑详情",
+      "input": "id:uuid",
+      "output": "Reward 编辑 DTO，不含供应商密钥",
+      "requirement": "R05",
+      "phase": 5,
+      "auth": "admin",
+      "status": "proposed",
+      "implementationStatus": "implemented",
+      "runtimePath": "/api/v1/admin/points/rewards/{id}"
+    },
+    {
+      "id": "E09",
+      "kind": "extension",
+      "method": "POST",
+      "path": "/admin/points/rewards/{id}/archive",
+      "title": "权益归档",
+      "input": "version",
+      "output": "禁止新兑换，已创建订单继续履约",
+      "requirement": "R05",
+      "phase": 5,
+      "auth": "admin",
+      "status": "proposed",
+      "implementationStatus": "implemented",
+      "runtimePath": "/api/v1/admin/points/rewards/{id}/archive"
+    },
+    {
+      "id": "E10",
+      "kind": "extension",
+      "method": "GET",
+      "path": "/admin/points/accounts",
+      "title": "积分账户查询",
+      "input": "userId?,cursor?,limit?",
+      "output": "账户列表，含对账差额；无任意改余额",
+      "requirement": "R02",
+      "phase": 3,
+      "auth": "admin",
+      "status": "proposed",
+      "implementationStatus": "implemented",
+      "runtimeContract": "contracts/phase-03-runtime.json"
+    },
+    {
+      "id": "E11",
+      "kind": "extension",
+      "method": "GET",
+      "path": "/admin/points/ledger",
+      "title": "积分流水查询",
+      "input": "userId?,startDate?,endDate?,businessType?,cursor?,limit?",
+      "output": "分页流水",
+      "requirement": "R04",
+      "phase": 3,
+      "auth": "admin",
+      "status": "proposed",
+      "implementationStatus": "implemented",
+      "runtimeContract": "contracts/phase-03-runtime.json"
+    },
+    {
+      "id": "E12",
+      "kind": "extension",
+      "method": "GET",
+      "path": "/admin/points/tasks",
+      "title": "任务规则查询",
+      "input": "无",
+      "output": "固定四种任务及当前版本",
+      "requirement": "R03",
+      "phase": 3,
+      "auth": "admin",
+      "status": "proposed",
+      "implementationStatus": "implemented",
+      "runtimeContract": "contracts/phase-03-runtime.json"
+    },
+    {
+      "id": "E13",
+      "kind": "extension",
+      "method": "PATCH",
+      "path": "/admin/points/tasks/{code}",
+      "title": "版本化任务规则编辑",
+      "input": "expectedRuleVersion,rewardPoints:int>0,active:boolean,title?,description?",
+      "output": "递增 ruleVersion；禁止改 code/scope，不重算旧奖励",
+      "requirement": "R03",
+      "phase": 3,
+      "auth": "admin",
+      "status": "proposed",
+      "implementationStatus": "implemented",
+      "runtimeContract": "contracts/phase-03-runtime.json"
+    },
+    {
+      "id": "E14",
+      "kind": "extension",
+      "method": "GET",
+      "path": "/admin/points/redemptions",
+      "title": "兑换订单查询",
+      "input": "userId?,status?,cursor?,limit?",
+      "output": "分页订单，不展示明文兑换码",
+      "requirement": "R06",
+      "phase": 5,
+      "auth": "admin",
+      "status": "proposed",
+      "implementationStatus": "implemented",
+      "runtimePath": "/api/v1/admin/points/redemptions"
+    },
+    {
+      "id": "E15",
+      "kind": "extension",
+      "method": "GET",
+      "path": "/admin/points/redemptions/{id}",
+      "title": "履约订单详情",
+      "input": "id:uuid",
+      "output": "脱敏状态和关联流水；供应商状态经适配器查询",
+      "requirement": "R07",
+      "phase": 5,
+      "auth": "admin",
+      "status": "proposed",
+      "implementationStatus": "implemented",
+      "runtimePath": "/api/v1/admin/points/redemptions/{id}"
+    },
+    {
+      "id": "E16",
+      "kind": "extension",
+      "method": "POST",
+      "path": "/admin/points/redemptions/{id}/reconcile",
+      "title": "核对未明履约结果",
+      "input": "version；服务端向供应商查询，不接收自报成功/失败",
+      "output": "查询结果更新或继续 pending；不自动重复发放，不强制退款",
+      "requirement": "R07",
+      "phase": 5,
+      "auth": "admin",
+      "status": "proposed",
+      "implementationStatus": "implemented",
+      "runtimePath": "/api/v1/admin/points/redemptions/{id}/reconcile"
+    },
+    {
+      "id": "E17",
+      "kind": "extension",
+      "method": "GET",
+      "path": "/admin/overview",
+      "title": "M05 运营概览",
+      "input": "无",
+      "output": "真实 MySQL 快照：可用积分、已发布活动和权益、待参加预约、待履约订单、待处理举报、已发送消息批次与站内未读数",
+      "requirement": "R16",
+      "phase": 7,
+      "auth": "admin",
+      "status": "implemented",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "E18",
+      "kind": "extension",
+      "method": "GET",
+      "path": "/admin/audit-logs",
+      "title": "M05 操作审计查询",
+      "input": "resourceType?,actorId?,cursor?,limit?",
+      "output": "经审计端口筛选 M05 记录",
+      "requirement": "R15",
+      "phase": 6,
+      "auth": "admin",
+      "status": "proposed",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "E19",
+      "kind": "extension",
+      "method": "GET",
+      "path": "/admin/message-campaigns",
+      "title": "运营消息批次列表",
+      "input": "status?,cursor?,limit?",
+      "output": "分页批次与发送统计",
+      "requirement": "R13",
+      "phase": 6,
+      "auth": "admin",
+      "status": "proposed",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "E20",
+      "kind": "extension",
+      "method": "POST",
+      "path": "/admin/message-campaigns",
+      "title": "创建运营消息草稿",
+      "input": "title:string(1..100),body:string(1..500),recipientUserIds:uuid[](1..100),link?:受控M05路径",
+      "output": "草稿；首版只支持指定用户和立即发送，不做自动全员群发",
+      "requirement": "R13",
+      "phase": 6,
+      "auth": "admin",
+      "status": "proposed",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "E21",
+      "kind": "extension",
+      "method": "GET",
+      "path": "/admin/message-campaigns/{id}",
+      "title": "运营消息详情",
+      "input": "id:uuid",
+      "output": "批次、version 和接收人快照",
+      "requirement": "R13",
+      "phase": 6,
+      "auth": "admin",
+      "status": "proposed",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "E22",
+      "kind": "extension",
+      "method": "PATCH",
+      "path": "/admin/message-campaigns/{id}",
+      "title": "编辑未发送消息",
+      "input": "version,title?,body?,recipientUserIds?,link?",
+      "output": "仅 draft 可编辑",
+      "requirement": "R13",
+      "phase": 6,
+      "auth": "admin",
+      "status": "proposed",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "E23",
+      "kind": "extension",
+      "method": "POST",
+      "path": "/admin/message-campaigns/{id}/send",
+      "title": "确认发送消息",
+      "input": "version",
+      "output": "202；冻结内容和接收人，按批次/用户去重",
+      "requirement": "R13",
+      "phase": 6,
+      "auth": "admin",
+      "status": "proposed",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "E24",
+      "kind": "extension",
+      "method": "GET",
+      "path": "/admin/message-campaigns/{id}/recipients",
+      "title": "逐接收人处理记录",
+      "input": "cursor?,limit?",
+      "output": "接收处理、通道类型、投递状态；本地不冒称推送送达",
+      "requirement": "R13",
+      "phase": 6,
+      "auth": "admin",
+      "status": "proposed",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "E25",
+      "kind": "extension",
+      "method": "POST",
+      "path": "/admin/message-campaigns/{id}/retry",
+      "title": "重试确定失败的发送",
+      "input": "version",
+      "output": "202；仅失败项，未知外部结果先查询，已成功不重发",
+      "requirement": "R13",
+      "phase": 6,
+      "auth": "admin",
+      "status": "proposed",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "S01",
+      "kind": "shared_adapter",
+      "method": "GET",
+      "path": "/me",
+      "title": "账号摘要",
+      "input": "无",
+      "output": "id,nickname,avatarUrl；身份字段来自会话",
+      "requirement": "R14",
+      "phase": 2,
+      "auth": "user",
+      "status": "adapter_design",
+      "owner": "M01",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "S02",
+      "kind": "shared_adapter",
+      "method": "GET",
+      "path": "/me/notifications",
+      "title": "本地通知收件箱",
+      "input": "unreadOnly?:true|false,cursor?,limit?",
+      "output": "仅本人消息列表，包含已读状态和测试通道标识",
+      "requirement": "R13",
+      "phase": 6,
+      "auth": "user",
+      "status": "adapter_design",
+      "owner": "M01",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "S03",
+      "kind": "shared_adapter",
+      "method": "PUT",
+      "path": "/me/notifications/{id}/read",
+      "title": "标记本人消息已读",
+      "input": "无",
+      "output": "幂等更新，跨用户 404",
+      "requirement": "R13",
+      "phase": 6,
+      "auth": "user",
+      "status": "adapter_design",
+      "owner": "M01",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "S04",
+      "kind": "shared_adapter",
+      "method": "POST",
+      "path": "/uploads/presign",
+      "title": "素材上传申请",
+      "input": "purpose:activity_cover|reward_image,filename,contentType:image/jpeg|image/png|image/webp,sizeBytes<=5242880,checksumSha256",
+      "output": "受限上传地址和 assetId；仅管理员可申请运营素材",
+      "requirement": "R15",
+      "phase": 6,
+      "auth": "admin",
+      "status": "adapter_design",
+      "owner": "M01",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "S05",
+      "kind": "shared_adapter",
+      "method": "POST",
+      "path": "/uploads/{assetId}/complete",
+      "title": "完成上传与校验",
+      "input": "checksumSha256:string",
+      "output": "202 validating；ready 前不得发布为封面，图片安全校验",
+      "requirement": "R15",
+      "phase": 6,
+      "auth": "admin",
+      "status": "adapter_design",
+      "owner": "M01",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "S06",
+      "kind": "shared_adapter",
+      "method": "GET",
+      "path": "/uploads/{assetId}",
+      "title": "素材状态",
+      "input": "assetId:uuid",
+      "output": "状态和授权读取结果",
+      "requirement": "R15",
+      "phase": 6,
+      "auth": "admin",
+      "status": "adapter_design",
+      "owner": "M01",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "D01",
+      "kind": "development",
+      "method": "POST",
+      "path": "/api/dev/session",
+      "title": "建立开发会话",
+      "input": "profileKey:user_a/user_b/admin；本地开发令牌",
+      "output": "服务器签发测试会话，返回账号摘要及CSRF token",
+      "requirement": "R01",
+      "phase": 2,
+      "auth": "local_development_token",
+      "status": "development_only",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "D02",
+      "kind": "development",
+      "method": "DELETE",
+      "path": "/api/dev/session",
+      "title": "退出开发会话",
+      "input": "当前会话",
+      "output": "204；撤销并清理Cookie，前端清当前用户缓存",
+      "requirement": "R01",
+      "phase": 2,
+      "auth": "local_development_token",
+      "status": "development_only",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "D03",
+      "kind": "development",
+      "method": "POST",
+      "path": "/api/dev/scenarios",
+      "title": "生成受控测试来源",
+      "input": "scenario 枚举、固定 fixtureKey、允许日期/课程/故障点；不接收分值和任意SQL",
+      "output": "真实来源、奖励和账本同事务结果",
+      "requirement": "R16",
+      "phase": 3,
+      "auth": "local_development_token",
+      "status": "development_only",
+      "implementationStatus": "implemented",
+      "runtimeContract": "contracts/phase-03-runtime.json"
+    },
+    {
+      "id": "D04",
+      "kind": "development",
+      "method": "PUT",
+      "path": "/api/dev/clock",
+      "title": "设置测试时钟",
+      "input": "ISO8601 UTC instant；仅测试实例",
+      "output": "当前测试时钟；记录操作，禁止生产开启",
+      "requirement": "R03",
+      "phase": 3,
+      "auth": "local_development_token",
+      "status": "development_only",
+      "implementationStatus": "implemented",
+      "runtimeContract": "contracts/phase-03-runtime.json"
+    },
+    {
+      "id": "D05",
+      "kind": "development",
+      "method": "PUT",
+      "path": "/api/dev/provider",
+      "title": "选择测试供应商场景",
+      "input": "{scenario:success/final_failure/timeout/late_result/duplicate}；同源、CSRF",
+      "output": "测试场景配置；不直接修改订单或余额",
+      "requirement": "R07",
+      "phase": 5,
+      "auth": "admin_and_local_development_token",
+      "status": "development_only",
+      "implementationStatus": "implemented",
+      "runtimePath": "/api/dev/provider"
+    },
+    {
+      "id": "E26",
+      "kind": "extension",
+      "method": "GET",
+      "path": "/me/points/redemptions/{id}",
+      "title": "本人兑换订单详情",
+      "input": "id:uuid；本人会话",
+      "output": "兑换快照与状态；仅本人已发放订单包含 code",
+      "requirement": "R06",
+      "phase": 5,
+      "auth": "user",
+      "status": "implemented",
+      "implementationStatus": "implemented",
+      "runtimePath": "/api/v1/me/points/redemptions/{id}"
+    },
+    {
+      "id": "D06",
+      "kind": "development",
+      "method": "GET",
+      "path": "/api/dev/provider",
+      "title": "读取测试供应商场景",
+      "input": "管理员会话与服务端开发令牌",
+      "output": "mode、enabled、scenario；不含密钥",
+      "requirement": "R07",
+      "phase": 5,
+      "auth": "admin_and_local_development_token",
+      "status": "development_only",
+      "implementationStatus": "implemented",
+      "runtimePath": "/api/dev/provider"
+    },
+    {
+      "id": "D07",
+      "kind": "development",
+      "method": "POST",
+      "path": "/api/dev/redemption-worker",
+      "title": "手动运行一轮履约执行器",
+      "input": "空对象；管理员、同源、CSRF、服务端开发令牌",
+      "output": "processed；与自动 Worker 相同的事务和租约逻辑",
+      "requirement": "R07",
+      "phase": 5,
+      "auth": "admin_and_local_development_token",
+      "status": "development_only",
+      "implementationStatus": "implemented",
+      "runtimePath": "/api/dev/redemption-worker"
+    },
+    {
+      "id": "E27",
+      "kind": "extension",
+      "method": "GET",
+      "path": "/admin/message-recipients",
+      "title": "指定用户选择器",
+      "input": "q?,cursor?,limit?",
+      "output": "有效用户 id、nickname",
+      "auth": "admin",
+      "requirement": "R13",
+      "phase": 6,
+      "status": "implemented",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "E28",
+      "kind": "extension",
+      "method": "GET",
+      "path": "/admin/notification-events",
+      "title": "业务通知处理记录",
+      "input": "cursor?,limit?",
+      "output": "状态、次数、失败码、租约版本",
+      "auth": "admin",
+      "requirement": "R13",
+      "phase": 6,
+      "status": "implemented",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "E29",
+      "kind": "extension",
+      "method": "POST",
+      "path": "/admin/notification-events/{id}/retry",
+      "title": "重排失败事件",
+      "input": "version:lease_version",
+      "output": "202；仅pending或failed",
+      "auth": "admin",
+      "requirement": "R13",
+      "phase": 6,
+      "status": "implemented",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "E30",
+      "kind": "extension",
+      "method": "GET",
+      "path": "/admin/media-assets",
+      "title": "M05 素材库",
+      "input": "purpose?,status?,cursor?,limit?",
+      "output": "状态与短时预览URL",
+      "auth": "admin",
+      "requirement": "R15",
+      "phase": 6,
+      "status": "implemented",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "S07",
+      "kind": "shared_adapter",
+      "method": "GET",
+      "path": "/notifications/capabilities",
+      "title": "通知通道能力",
+      "input": "platform?:h5|ios|android",
+      "output": "inApp/webPush/appPush/mode",
+      "auth": "public",
+      "requirement": "R13",
+      "phase": 6,
+      "status": "implemented",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "S08",
+      "kind": "shared_adapter",
+      "method": "PUT",
+      "path": "/uploads/{assetId}/content",
+      "title": "本地签名上传",
+      "input": "token；二进制Body；Content-Type",
+      "output": "校验大小/SHA/上传者；不代表ready",
+      "auth": "admin",
+      "requirement": "R15",
+      "phase": 6,
+      "status": "implemented",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "S09",
+      "kind": "shared_adapter",
+      "method": "GET",
+      "path": "/uploads/{assetId}/content",
+      "title": "安全图片读取",
+      "input": "token签名和访问范围",
+      "output": "image/webp；核验当前发布引用",
+      "auth": "signed",
+      "requirement": "R15",
+      "phase": 6,
+      "status": "implemented",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "D08",
+      "kind": "development",
+      "method": "GET",
+      "path": "/api/dev/notification-scenario",
+      "title": "本地通知故障配置",
+      "input": "开发令牌和管理员",
+      "output": "failedUserIds",
+      "auth": "admin",
+      "requirement": "R13",
+      "phase": 6,
+      "status": "implemented",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "D09",
+      "kind": "development",
+      "method": "PUT",
+      "path": "/api/dev/notification-scenario",
+      "title": "设置通知故障",
+      "input": "failedUserIds:uuid[]；Origin/CSRF",
+      "output": "生产不注册",
+      "auth": "admin",
+      "requirement": "R13",
+      "phase": 6,
+      "status": "implemented",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "D10",
+      "kind": "development",
+      "method": "POST",
+      "path": "/api/dev/notification-worker",
+      "title": "运行通知执行器",
+      "input": "空对象；Origin/CSRF",
+      "output": "本轮执行结果；生产不注册",
+      "auth": "admin",
+      "requirement": "R13",
+      "phase": 6,
+      "status": "implemented",
+      "implementationStatus": "implemented"
+    }
+  ],
+  "tests": [
+    {
+      "id": "T01",
+      "requirement": "R01",
+      "phase": 2,
+      "title": "开发身份与隔离",
+      "steps": "分别在两个浏览器建立 A/B，会话切换后刷新",
+      "expected": "预约/积分/消息和缓存按身份隔离",
+      "status": "partial",
+      "evidence": "../phase-02/api-db-checks.json",
+      "note": "身份/会话/权限基础已通过；积分、预约和消息的数据隔离在对应业务阶段补验。"
+    },
+    {
+      "id": "T02",
+      "requirement": "R01",
+      "phase": 2,
+      "title": "越权和未登录",
+      "steps": "普通 A 调后台；退出后提交业务；请求 Body 添加 userId/role",
+      "expected": "分别 403、401、422；数据库无副作用",
+      "status": "partial",
+      "evidence": "../phase-02/api-db-checks.json",
+      "note": "身份/会话/权限基础已通过；积分、预约和消息的数据隔离在对应业务阶段补验。"
+    },
+    {
+      "id": "T03",
+      "requirement": "R01",
+      "phase": 2,
+      "title": "正式模式测试入口关闭",
+      "steps": "以 production 配置请求 /dev 或启用测试适配器",
+      "expected": "测试路由不注册；依赖不完整时启动检查失败",
+      "status": "passed",
+      "evidence": "../phase-02/api-db-checks.json"
+    },
+    {
+      "id": "T04",
+      "requirement": "R02",
+      "phase": 3,
+      "title": "开户与幂等",
+      "steps": "创建新测试用户并重复调用开户",
+      "expected": "余额和累计为 0，账户仅一条",
+      "status": "passed",
+      "evidence": "design/phase-03/api-db-checks.json"
+    },
+    {
+      "id": "T05",
+      "requirement": "R03",
+      "phase": 3,
+      "title": "重复签到并发",
+      "steps": "A 对同日签到并发 20 次及不同幂等键重试",
+      "expected": "一条资格、一笔 +10、余额 10；重复返回既有事实",
+      "status": "passed",
+      "evidence": "design/phase-03/api-db-checks.json"
+    },
+    {
+      "id": "T06",
+      "requirement": "R03",
+      "phase": 3,
+      "title": "四类来源发奖",
+      "steps": "测试工具同事务创建合法来源并调用真实 PointsPort",
+      "expected": "签到10/水5/餐10/有效课程20；所有来源归属可追溯",
+      "status": "passed",
+      "evidence": "design/phase-03/api-db-checks.json"
+    },
+    {
+      "id": "T07",
+      "requirement": "R03",
+      "phase": 3,
+      "title": "无效与跨用户来源",
+      "steps": "传 B 来源、软删来源、无资格训练、客户端分值",
+      "expected": "拒绝或按无奖励契约保存，不能错误发奖",
+      "status": "passed",
+      "evidence": "design/phase-03/api-db-checks.json"
+    },
+    {
+      "id": "T08",
+      "requirement": "R03",
+      "phase": 3,
+      "title": "补录删除及规则升级",
+      "steps": "历史补录，删除再加，当日提高 rule_version 后重复完成",
+      "expected": "已有资格不重置，历史补录不发当日奖励",
+      "status": "passed",
+      "evidence": "design/phase-03/api-db-checks.json"
+    },
+    {
+      "id": "T09",
+      "requirement": "R03",
+      "phase": 3,
+      "title": "同课程去重和不同课程",
+      "steps": "同日同课程训练两次，再完成另一课程",
+      "expected": "前者只奖励一次，后者按各自 scope 奖励",
+      "status": "passed",
+      "evidence": "design/phase-03/api-db-checks.json"
+    },
+    {
+      "id": "T10",
+      "requirement": "R03",
+      "phase": 3,
+      "title": "事务失败回滚",
+      "steps": "在来源写入后、账本写入前注入失败",
+      "expected": "来源、资格、余额和流水全部回滚；重试一次成功",
+      "status": "passed",
+      "evidence": "design/phase-03/api-db-checks.json"
+    },
+    {
+      "id": "T11",
+      "requirement": "R03",
+      "phase": 3,
+      "title": "跨上海午夜和连续签到",
+      "steps": "固定测试时钟跨午夜，连续/间断签到",
+      "expected": "业务日按上海计算，连续天数由真实资格推导",
+      "status": "passed",
+      "evidence": "design/phase-03/api-db-checks.json"
+    },
+    {
+      "id": "T12",
+      "requirement": "R04",
+      "phase": 3,
+      "title": "积分账本对账",
+      "steps": "完成发奖/兑换/退款后计算账户和流水",
+      "expected": "balance=earned-spent=SUM(delta)，退款纳入正向累计",
+      "status": "passed",
+      "evidence": "design/phase-05/api-db-checks.json",
+      "note": "发奖、兑换扣分与退款完整对账通过；退款纳入正向累计。"
+    },
+    {
+      "id": "T13",
+      "requirement": "R04",
+      "phase": 3,
+      "title": "流水分页",
+      "steps": "多条同毫秒流水，翻页和改变筛选",
+      "expected": "稳定游标无遗漏重复，筛选变化不能复用旧游标",
+      "status": "passed",
+      "evidence": "design/phase-03/api-db-checks.json"
+    },
+    {
+      "id": "T14",
+      "requirement": "R05",
+      "phase": 5,
+      "title": "后台权益生命周期",
+      "steps": "管理员建草稿、改价格库存、发布、归档",
+      "expected": "H5 仅显示可发布内容；归档停止新兑换，历史订单不变",
+      "status": "passed",
+      "evidence": "design/phase-05/api-db-checks.json"
+    },
+    {
+      "id": "T15",
+      "requirement": "R06",
+      "phase": 5,
+      "title": "价格版本变化",
+      "steps": "用户打开确认后管理员改价再提交旧版本",
+      "expected": "REWARD_CHANGED，不扣分不扣库存，重新确认",
+      "status": "passed",
+      "evidence": "design/phase-05/api-db-checks.json"
+    },
+    {
+      "id": "T16",
+      "requirement": "R06",
+      "phase": 5,
+      "title": "末库存竞争",
+      "steps": "多个有足额积分用户并发兑换库存1商品",
+      "expected": "最多一个成功；库存不负，账本与订单一致",
+      "status": "passed",
+      "evidence": "design/phase-05/api-db-checks.json"
+    },
+    {
+      "id": "T17",
+      "requirement": "R06",
+      "phase": 5,
+      "title": "余额和每日限额",
+      "steps": "同用户并发兑换；最终失败退款后再兑换",
+      "expected": "不透支；全部订单状态计入日尝试上限",
+      "status": "passed",
+      "evidence": "design/phase-05/api-db-checks.json"
+    },
+    {
+      "id": "T18",
+      "requirement": "R06",
+      "phase": 5,
+      "title": "兑换幂等和中断",
+      "steps": "同 key 重试、不同 body 同 key、提交后响应丢失",
+      "expected": "同操作仅一单；冲突409；响应丢失可恢复既有结果",
+      "status": "passed",
+      "evidence": "design/phase-05/api-db-checks.json"
+    },
+    {
+      "id": "T19",
+      "requirement": "R07",
+      "phase": 5,
+      "title": "成功履约去重",
+      "steps": "测试供应商成功，重复事件和重复回调",
+      "expected": "只发一次测试权益，订单 fulfilled，本人可查询测试兑换码",
+      "status": "passed",
+      "evidence": "design/phase-05/api-db-checks.json",
+      "note": "已验证 Worker 重复结果与租约隔离；未对外开放供应商回调 HTTP，真实供应商另行集成验收。"
+    },
+    {
+      "id": "T20",
+      "requirement": "R07",
+      "phase": 5,
+      "title": "最终失败补偿",
+      "steps": "供应商明确最终失败，多次执行补偿",
+      "expected": "原额退款和恢复库存一次，reversal_of 指向原扣分",
+      "status": "passed",
+      "evidence": "design/phase-05/api-db-checks.json"
+    },
+    {
+      "id": "T21",
+      "requirement": "R07",
+      "phase": 5,
+      "title": "未知与迟到结果",
+      "steps": "供应商超时后查询成功；另测补偿后迟到成功",
+      "expected": "超时 pending 不退款；refunded 不被覆盖，异常记录可查",
+      "status": "passed",
+      "evidence": "design/phase-05/api-db-checks.json"
+    },
+    {
+      "id": "T22",
+      "requirement": "R07",
+      "phase": 5,
+      "title": "执行器恢复",
+      "steps": "Worker 领取后退出、租约超时、旧执行者写回",
+      "expected": "可接管；旧状态/version 写回无效，不重复不明外部调用",
+      "status": "passed",
+      "evidence": "design/phase-05/api-db-checks.json"
+    },
+    {
+      "id": "T23",
+      "requirement": "R08",
+      "phase": 4,
+      "title": "活动编辑发布和归档",
+      "steps": "建草稿场次、发布、改内容、归档",
+      "expected": "未发布不展示；归档禁新预约，已有预约按关闭流程处理",
+      "status": "passed",
+      "evidence": "design/phase-04/api-db-checks.json"
+    },
+    {
+      "id": "T24",
+      "requirement": "R08",
+      "phase": 4,
+      "title": "容量和时间边界",
+      "steps": "已占2席时改容量1，修改已预约开始时间",
+      "expected": "拒绝容量不足和静默改约；编辑版本冲突409",
+      "status": "passed",
+      "evidence": "design/phase-04/api-db-checks.json"
+    },
+    {
+      "id": "T25",
+      "requirement": "R09",
+      "phase": 4,
+      "title": "最后一席和同场重复",
+      "steps": "A/B 抢1席；成功用户重复预约",
+      "expected": "最多1席、同用户同场一条记录、计数一致",
+      "status": "passed",
+      "evidence": "design/phase-04/api-db-checks.json"
+    },
+    {
+      "id": "T26",
+      "requirement": "R09",
+      "phase": 4,
+      "title": "跨场时间冲突",
+      "steps": "A 同时约重叠场次，再测试相邻结束开始",
+      "expected": "重叠最多成功一个；相邻允许",
+      "status": "passed",
+      "evidence": "design/phase-04/api-db-checks.json"
+    },
+    {
+      "id": "T27",
+      "requirement": "R09",
+      "phase": 4,
+      "title": "取消重约和快照",
+      "steps": "截止前取消两次、重新预约；后台随后编辑标题",
+      "expected": "只释放一次；重约记录版本递增并更新快照，历史事实不被编辑覆盖",
+      "status": "passed",
+      "evidence": "design/phase-04/api-db-checks.json"
+    },
+    {
+      "id": "T28",
+      "requirement": "R09",
+      "phase": 4,
+      "title": "取消截止及身份归属",
+      "steps": "截止前1毫秒/等于截止/之后取消；B访问A预约",
+      "expected": "仅截止前允许；B读取取消均404",
+      "status": "passed",
+      "evidence": "design/phase-04/api-db-checks.json"
+    },
+    {
+      "id": "T29",
+      "requirement": "R10",
+      "phase": 4,
+      "title": "整场取消并发",
+      "steps": "签到一人后整场取消，同时其他用户报名和取消",
+      "expected": "只取消 confirmed；attended/no_show 仍占原数；无反向锁用户死锁",
+      "status": "passed",
+      "evidence": "design/phase-04/api-db-checks.json"
+    },
+    {
+      "id": "T30",
+      "requirement": "R10",
+      "phase": 4,
+      "title": "签到与未到场",
+      "steps": "管理员在窗口内签到，重复签到，系统结算 no_show",
+      "expected": "状态版本受控；普通用户不能自报 attended；不释放名额，不发预约积分",
+      "status": "passed",
+      "evidence": "design/phase-04/api-db-checks.json"
+    },
+    {
+      "id": "T31",
+      "requirement": "R11",
+      "phase": 4,
+      "title": "默认隐藏和分别授权",
+      "steps": "默认预约；公开参与身份但关闭 discoverable",
+      "expected": "默认不列出；列表同意不等于个人主页公开",
+      "status": "passed",
+      "evidence": "design/phase-04/api-db-checks.json"
+    },
+    {
+      "id": "T32",
+      "requirement": "R11",
+      "phase": 4,
+      "title": "公开字段白名单",
+      "steps": "查看参与者、公开资料、列表分页",
+      "expected": "只返回准许公开字段，无手机号/体重/情绪/餐照/聊天",
+      "status": "passed",
+      "evidence": "design/phase-04/api-db-checks.json"
+    },
+    {
+      "id": "T33",
+      "requirement": "R11",
+      "phase": 4,
+      "title": "首次创建版本冲突",
+      "steps": "两次 version=0 并发保存社区资料",
+      "expected": "只创建一次；旧 version 返回409，不覆盖新资料",
+      "status": "passed",
+      "evidence": "design/phase-04/api-db-checks.json"
+    },
+    {
+      "id": "T34",
+      "requirement": "R12",
+      "phase": 4,
+      "title": "双向屏蔽",
+      "steps": "A屏蔽B，分别查看双方列表主页，重复PUT/DELETE",
+      "expected": "双方不可见；屏蔽操作幂等，禁止自屏蔽",
+      "status": "passed",
+      "evidence": "design/phase-04/api-db-checks.json"
+    },
+    {
+      "id": "T35",
+      "requirement": "R12",
+      "phase": 4,
+      "title": "举报审核和禁用",
+      "steps": "举报活动/用户，审核驳回/禁用，重复处理",
+      "expected": "审计一次；用户禁用经公共端口；活动禁用停止新预约",
+      "status": "passed",
+      "evidence": "design/phase-04/api-db-checks.json"
+    },
+    {
+      "id": "T36",
+      "requirement": "R13",
+      "phase": 6,
+      "title": "业务通知原子生成",
+      "steps": "预约/取消/整场取消/兑换完成退款，消费重复事件",
+      "expected": "业务提交才产生通知；按 bookingEventId 或业务版本去重",
+      "status": "passed",
+      "evidence": "../phase-06/api-db-checks.json"
+    },
+    {
+      "id": "T37",
+      "requirement": "R13",
+      "phase": 6,
+      "title": "运营消息接收人",
+      "steps": "管理员给A创建并发送，B检查收件箱",
+      "expected": "只A收到；批次内容和接收人冻结，每用户一份",
+      "status": "passed",
+      "evidence": "../phase-06/api-db-checks.json"
+    },
+    {
+      "id": "T38",
+      "requirement": "R13",
+      "phase": 6,
+      "title": "发送重试及已读",
+      "steps": "重复send、部分失败重试、A读消息/B读A消息",
+      "expected": "成功不重发，失败可重试，已读幂等，跨用户404",
+      "status": "passed",
+      "evidence": "../phase-06/api-db-checks.json"
+    },
+    {
+      "id": "T39",
+      "requirement": "R13",
+      "phase": 6,
+      "title": "本地通道与真实通道",
+      "steps": "本地投递后查看记录；外部通道缺配置",
+      "expected": "明确本地已处理，不显示浏览器已送达；生产不假成功",
+      "status": "passed",
+      "evidence": "../phase-06/api-db-checks.json"
+    },
+    {
+      "id": "T40",
+      "requirement": "R14",
+      "phase": 3,
+      "title": "我的页面可替换组件",
+      "steps": "独立运行再换成契约兼容账号/档案组件",
+      "expected": "布局不依赖其他模块进程；占位明确，集成不用复制表单",
+      "status": "passed",
+      "evidence": "design/phase-03/api-db-checks.json"
+    },
+    {
+      "id": "T41",
+      "requirement": "R15",
+      "phase": 6,
+      "title": "素材校验和审计",
+      "steps": "上传非法类型、普通用户申请运营素材、编辑内容",
+      "expected": "非法素材不ready；权限拒绝；合法编辑留审计，不输出密钥",
+      "status": "passed",
+      "evidence": "../phase-06/api-db-checks.json"
+    },
+    {
+      "id": "T42",
+      "requirement": "R16",
+      "phase": 7,
+      "title": "全流程独立验收",
+      "steps": "只启动M05的H5、后台、双API、Worker和MySQL",
+      "expected": "管理员发布到用户获得权益及预约取消全流程持久化可核对",
+      "status": "passed",
+      "evidence": "../phase-07/e2e-checks.json"
+    },
+    {
+      "id": "T43",
+      "requirement": "R16",
+      "phase": 7,
+      "title": "崩溃重启和基线一致",
+      "steps": "服务重启，空库初始化和升级验证，检查公共契约",
+      "expected": "业务保留；V001原样不变；开发适配器与未运行真实服务列明",
+      "status": "passed",
+      "evidence": "../phase-07/e2e-checks.json"
+    }
+  ],
+  "dependencies": [
+    {
+      "name": "IdentityPort / AccountSummary",
+      "owner": "M01",
+      "standalone": "固定 fixture 用户和开发会话适配器，服务端解析身份；不新建用户表",
+      "integration": "接入 M01 会话/CSRF/账号摘要；移除开发身份入口"
+    },
+    {
+      "name": "UnitOfWork / SqlTx / Clock / Idempotency",
+      "owner": "M01",
+      "standalone": "实现契约兼容的真实 mysql2 事务、锁序、幂等租约和 UTC 时钟，不使用假账务",
+      "integration": "共享同一实现/连接池，业务模块只接收 tx；生产读取系统时钟"
+    },
+    {
+      "name": "OutboxPort / NotificationPort / AuditPort",
+      "owner": "M01",
+      "standalone": "兼容适配器写公共 outbox、通知和审计表；本地 Worker 和收件箱真实落库",
+      "integration": "注册 M05 事件和去重键；切换统一 Dispatcher 与真实投递服务"
+    },
+    {
+      "name": "MediaPort",
+      "owner": "M01",
+      "standalone": "本地受控图片存储和校验，元数据沿用 media_assets；无云对象存储承诺",
+      "integration": "替换统一上传、鉴权和签名读取端口，业务保留 assetId"
+    },
+    {
+      "name": "HealthProfilePanel / 健康行为来源",
+      "owner": "M02/M03/M04",
+      "standalone": "组件开发占位；仅工具箱向原来源表写明确 fixture，并在同一事务调用 M05 奖励",
+      "integration": "真实模块提交来源ID和同一tx；不以 HTTP 或异步补分替代"
+    },
+    {
+      "name": "数字权益 FulfillmentProvider",
+      "owner": "M05/供应商",
+      "standalone": "可控成功/失败/未知/迟到/重复场景的测试供应商，发放标注 TEST 的权益码",
+      "integration": "替换真实供应商适配器，先确认稳定幂等/结果查询能力；密钥服务端保存"
+    },
+    {
+      "name": "用户禁用 UserAdministrationPort",
+      "owner": "M01",
+      "standalone": "开发适配器按统一用户锁序更新测试账号并撤销开发会话；只在适配层写公共表",
+      "integration": "调用真实 disableInTransaction 端口，社区模块不直接写 users.status"
+    }
+  ],
+  "decisions": [
+    {
+      "title": "服务结构",
+      "detail": "web/frontend与web/backend分别放H5前后端；server/frontend与server/backend分别放后台前后端；db保存统一数据库和增量迁移。后续业务服务在server/backend/src/modules集中维护，由web/backend通过工作区模块引用，双API入口共享逻辑与同一MySQL，不依赖进程内锁。当前为无构建步骤的双端交互原型，第②阶段搭建Next.js与NestJS正式工程。"
+    },
+    {
+      "title": "启动端口建议",
+      "detail": "当前只读界面预览使用H5 8765、后台8766。后续正式开发默认H5 3000、后台3001、H5 API3100、后台API3101，前端同源代理/api/v1，端口可配置。两端会话使用不同Cookie名，避免同域相互覆盖。"
+    },
+    {
+      "title": "公共请求约定",
+      "detail": "/api/v1、camelCase DTO、UUID v4、服务端身份；未知字段422；POST命令 Idempotency-Key；写请求 CSRF；统一成功/错误包装；列表 items/nextCursor、稳定复合游标。"
+    },
+    {
+      "title": "事务与锁序",
+      "detail": "READ COMMITTED；预约 users→幂等→activity→slot→booking；兑换 users→幂等→account→reward；退款 users→订单→account→reward。同类UUID排序；完整事务最多重试3次，复用幂等key；不在事务内等待网络。"
+    },
+    {
+      "title": "积分与账本",
+      "detail": "奖励唯一键 user/task/day/scope；rule_version 不在唯一键内；来源用户/状态/日期由M05重查；签到 source_id=NULL；整数范围校验；退款计入 earned，不改原流水。"
+    },
+    {
+      "title": "预约口径",
+      "detail": "booked_count=confirmed+attended+no_show；取消仅减实际状态转换数量；重约复用 user/slot 行；半开区间 [start,end)；业务判断用当前场次，快照只用于历史展示。"
+    },
+    {
+      "title": "履约状态",
+      "detail": "pending(pending/processing)→fulfilled(succeeded) 或最终失败同事务→refunded(failed)；超时继续pending。稳定 redemptionId 作为供应商幂等键；重投不能重发未知调用，优先查结果。"
+    },
+    {
+      "title": "开发测试身份",
+      "detail": "fixture A/B 和管理员沿用统一 users 表；开发切换接口只接受固定 profileKey，由后端签发 HttpOnly 会话；不信任前端 role/userId；正式模式不注册开发路由，并拒绝测试 adapter。"
+    },
+    {
+      "title": "规则配置与运营窗口",
+      "detail": "开发积分10/5/10/20、训练80%沿用原工作基线；预约不扣分。报名和取消窗口逐场配置；签到默认 [startAt-30分钟,endAt]，结束后由系统标记未到场，作为待人工确认的开发默认。"
+    },
+    {
+      "title": "推送范围",
+      "detail": "活动/权益发布后H5读取最新已发布内容；业务事件自动通知；运营消息首版仅指定1..100名接收人、立即发送、站内/本地通道。全员群发、定时、富文本、营销分群暂不加入。"
+    },
+    {
+      "title": "消息扩展提案",
+      "detail": "CR-M05-20261020-001：新增 m05_message_campaigns（内容/状态/版本/管理员/时间）和 m05_message_recipients（批次/用户/状态/notificationId/错误/版本/租约/尝试次数），UNIQUE(campaign_id,user_id)。投递日志复用M01端口。不得改V001；本地独立增量迁移，整合时由M01分配全局迁移版本。"
+    },
+    {
+      "title": "公共通知约束补充",
+      "detail": "现有 notifications.type CHECK 仅支持五种业务通知，不支持运营消息。CR-M05-20261020-002 提议由M01新增 operations_message 类型并同步DTO/消费者，body仍限制500字。独立模式需单独应用明确标识的兼容增量迁移，未经迁移不允许写入该类型；原V001保持不变。"
+    },
+    {
+      "title": "消息状态与事件",
+      "detail": "批次 draft→queued→sending→completed/partial_failed；接收项 pending→processing→succeeded/failed；稳定 batchId:userId 去重。新增 m05.message.campaign.requested.v1 事件作为扩展白名单提案；本地 adapter 可处理，集成注册后才能发送。"
+    },
+    {
+      "title": "通知详情与重试",
+      "detail": "业务事务只写 outbox；提交后锁目标用户创建通知。发送成功仅代表适配器可证明的状态；本地接收成功不等于浏览器送达。未知结果先查询，不直接重新发出；所有重试租约和版本条件更新。"
+    },
+    {
+      "title": "素材与密钥",
+      "detail": "上传仅支持受控 JPEG/PNG/WebP，开发上限5MiB；解码验证与安全副本，禁SVG和任意远程URL；封面经 MediaPort 检查；兑换码使用服务端加密，管理员仅看脱敏状态。生产素材规则和真实服务另行联调。"
+    },
+    {
+      "title": "数据库基线",
+      "detail": "完整44表V001原样初始化独立空库；MySQL8.4/InnoDB/utf8mb4、CHAR(36) ASCII UUID、UTC DATETIME(3)、上海业务日；users等M01表只允许兼容适配层操作，M05业务只写本组表。"
+    },
+    {
+      "title": "跨组页面",
+      "detail": "我的包含账号卡、积分、预约、兑换、社区以及档案/收藏插槽；独立模式其他组入口明确显示占位说明，不新做健康档案、收藏或训练页面。"
+    },
+    {
+      "title": "阶段交付闸口",
+      "detail": "每阶段运行相应自动检查并记录实际结果，展示七阶段状态表，再交人工检查。只有明确人工确认才更新 approval 并进入下一阶段；发现失败留在当前阶段修复。"
+    },
+    {
+      "title": "输入包注释差异",
+      "detail": "M01/M02/M06 的公共类型附录采用英文注释，M03/M04/M05 采用中文注释，字节并非完全一致。设计检查分别记录字节差异，并在排除注释后核对类型声明；不改原始文件，不将本地检查冒充官方完整包检查。"
+    }
+  ],
+  "manual_review": [
+    "核对完整 M05 范围：积分、兑换、预约、基础社区和我的布局是否齐全。",
+    "核对 H5 与后台页面清单，特别是后台活动/权益编辑发布和订单/报名查询。",
+    "核对独立测试身份方案：A、B、管理员及未登录，其他模块不启动。",
+    "核对积分默认10/5/10/20、训练80%，签到窗口默认提前30分钟至结束是否适合开发测试。",
+    "核对首版运营通知仅指定用户、立即发送；本地消息接收与真实推送分开验收。",
+    "核对两张运营消息扩展表和补充接口：保留V001，作为本地增量提案交整合负责人。",
+    "本阶段检查H5和后台界面及演示操作，不执行真实预约或兑换；确认后才开始第②阶段。"
+  ],
+  "proposed_tables": [
+    "m05_message_campaigns",
+    "m05_message_recipients"
+  ],
+  "limits": [
+    "第②阶段正式 H5/后台、双 API、MySQL、开发会话和公共事务层已实施；积分/预约/兑换/通知业务按第③—⑥阶段接入。",
+    "第①阶段内存原型保留在 8765/8766；正式应用运行在 3000/3001，账户来自真实数据库。",
+    "M01 正式登录、跨模块真实行为、云素材、真实权益供应商和外部推送留待整合验收。"
+  ],
+  "sources": [
+    {
+      "path": "任务/00_六人分工与MySQL总契约.md",
+      "sha256": "5fe1c85ceb005fcf52528d4ac30d54ab125ca8f99f363e11de4ed039a3354621"
+    },
+    {
+      "path": "任务/01_数据库中文字段字典.md",
+      "sha256": "1368ca3f1e8346191ec5144bfb72217174ed61e3d16a3634f3b97f70891fa32c"
+    },
+    {
+      "path": "任务/M01_账号与公共底座_Agent工作包.md",
+      "sha256": "d4409aa2b6544cb447a6cf9eb38b0bd0ed48b1dfc8bcf4553c613784553959c1"
+    },
+    {
+      "path": "任务/M02_健康记录与个人看板_Agent工作包.md",
+      "sha256": "b055249b727747c06626dc4ca77eaf170e037881ff71d4912fbf4d85cf5d4fb8"
+    },
+    {
+      "path": "任务/M03_饮食识别与附近餐饮_Agent工作包.md",
+      "sha256": "0be71990d6312c2708b29aa76c0ddd91bde405719fb90c3e91dfd4b8576bea1a"
+    },
+    {
+      "path": "任务/M04_训练计划与提醒_Agent工作包.md",
+      "sha256": "77334c22abb43f326d68335efb12873c7e6ed82f3f10db6691ab4ceac4e51e90"
+    },
+    {
+      "path": "任务/M05_积分兑换与活动预约_Agent工作包.md",
+      "sha256": "9f9b343d9d0ad4935b4dc1f621fdede6cbe8dd293961aabce4ec215c1b6ddf4d"
+    },
+    {
+      "path": "任务/M06_情绪记录与AI陪伴_Agent工作包.md",
+      "sha256": "be37e70e9c0f2687b78ab793a4f4f38495a042b13efe07ed78094384eadf4f45"
+    },
+    {
+      "path": "任务/健康App-前后端接口与数据库设计(1).md",
+      "sha256": "93ab7bb9fd2a9c5dbc84c7440ab2cbeff40dc7470fdc344750d15bbb8d9d4034"
+    },
+    {
+      "path": "任务/轻养健康App-PRD(1).html",
+      "sha256": "8f8b3b7271823b00d542b96720a81e7719b8d8670ed296d4f9aa77d55f51d8cb"
+    }
+  ],
+  "preview": {
+    "h5": "http://127.0.0.1:8765/",
+    "admin": "http://127.0.0.1:8766/",
+    "contracts": "http://127.0.0.1:8766/#/engineering",
+    "mode": "browser-memory-prototype",
+    "businessApiImplemented": false,
+    "databaseConnected": false
+  }
+}

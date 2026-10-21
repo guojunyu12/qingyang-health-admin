@@ -1,0 +1,2421 @@
+{
+  "contract": "QY-MYSQL-1.0.0",
+  "baselineSha256": "64ec33a66c813321d12a7bbc29eff4d3981d6d3f3eacf6fc1eb7f9265efd3c56",
+  "executed": true,
+  "tables": [
+    {
+      "name": "users",
+      "owner": "M01",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "phone_ciphertext",
+          "definition": "TEXT NOT NULL"
+        },
+        {
+          "name": "phone_lookup_hash",
+          "definition": "CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "nickname",
+          "definition": "VARCHAR(30) NOT NULL"
+        },
+        {
+          "name": "avatar_asset_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "timezone",
+          "definition": "VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'Asia/Shanghai'"
+        },
+        {
+          "name": "status",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'active'"
+        },
+        {
+          "name": "deleted_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE users (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  phone_ciphertext TEXT NOT NULL,\n  phone_lookup_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  nickname VARCHAR(30) NOT NULL,\n  avatar_asset_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  timezone VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'Asia/Shanghai',\n  status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'active',\n  deleted_at DATETIME(3) NULL,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  CONSTRAINT uq_users_phone_hash UNIQUE (phone_lookup_hash),\n  KEY ix_users_avatar (avatar_asset_id),\n  CONSTRAINT ck_users_phone_cipher CHECK (CHAR_LENGTH(phone_ciphertext) > 0),\n  CONSTRAINT ck_users_phone_hash CHECK (REGEXP_LIKE(phone_lookup_hash, '^[0-9a-f]{64}$', 'c')),\n  CONSTRAINT ck_users_nickname CHECK (CHAR_LENGTH(TRIM(nickname)) BETWEEN 1 AND 30),\n  CONSTRAINT ck_users_timezone CHECK (timezone = 'Asia/Shanghai'),\n  CONSTRAINT ck_users_status CHECK (status IN ('active', 'disabled', 'deleted')),\n  CONSTRAINT ck_users_deletion CHECK (\n    (status = 'deleted' AND deleted_at IS NOT NULL) OR\n    (status IN ('active', 'disabled') AND deleted_at IS NULL)\n  )\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "auth_challenges",
+      "owner": "M01",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "phone_lookup_hash",
+          "definition": "CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "phone_ciphertext",
+          "definition": "TEXT NOT NULL"
+        },
+        {
+          "name": "purpose",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'login'"
+        },
+        {
+          "name": "code_hash",
+          "definition": "VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "expires_at",
+          "definition": "DATETIME(3) NOT NULL"
+        },
+        {
+          "name": "consumed_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "attempts",
+          "definition": "SMALLINT NOT NULL DEFAULT 0"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE auth_challenges (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  phone_lookup_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  phone_ciphertext TEXT NOT NULL,\n  purpose VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'login',\n  code_hash VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  expires_at DATETIME(3) NOT NULL,\n  consumed_at DATETIME(3) NULL,\n  attempts SMALLINT NOT NULL DEFAULT 0,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  KEY ix_auth_phone_created (phone_lookup_hash, created_at DESC, id DESC),\n  KEY ix_auth_expires (expires_at),\n  CONSTRAINT ck_auth_phone_hash CHECK (REGEXP_LIKE(phone_lookup_hash, '^[0-9a-f]{64}$', 'c')),\n  CONSTRAINT ck_auth_phone_cipher CHECK (CHAR_LENGTH(phone_ciphertext) > 0),\n  CONSTRAINT ck_auth_purpose CHECK (purpose = 'login'),\n  CONSTRAINT ck_auth_code_hash CHECK (CHAR_LENGTH(code_hash) BETWEEN 1 AND 255),\n  CONSTRAINT ck_auth_attempts CHECK (attempts BETWEEN 0 AND 5),\n  CONSTRAINT ck_auth_expires CHECK (expires_at > created_at)\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "user_sessions",
+      "owner": "M01",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "device_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "platform",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "refresh_family_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "expires_at",
+          "definition": "DATETIME(3) NOT NULL"
+        },
+        {
+          "name": "revoked_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "last_seen_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE user_sessions (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  device_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  platform VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  refresh_family_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  expires_at DATETIME(3) NOT NULL,\n  revoked_at DATETIME(3) NULL,\n  last_seen_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  CONSTRAINT uq_sessions_refresh_family UNIQUE (refresh_family_id),\n  CONSTRAINT uq_sessions_id_user UNIQUE (id, user_id),\n  KEY ix_sessions_user_revoked (user_id, revoked_at),\n  KEY ix_sessions_expires (expires_at),\n  CONSTRAINT ck_sessions_platform CHECK (platform IN ('h5', 'ios', 'android')),\n  CONSTRAINT ck_sessions_expires CHECK (expires_at > created_at)\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "refresh_tokens",
+      "owner": "M01",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "session_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "token_hash",
+          "definition": "CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "expires_at",
+          "definition": "DATETIME(3) NOT NULL"
+        },
+        {
+          "name": "consumed_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "replaced_by",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE refresh_tokens (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  session_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  token_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  expires_at DATETIME(3) NOT NULL,\n  consumed_at DATETIME(3) NULL,\n  replaced_by CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  CONSTRAINT uq_refresh_token_hash UNIQUE (token_hash),\n  CONSTRAINT uq_refresh_id_session UNIQUE (id, session_id),\n  CONSTRAINT uq_refresh_replaced_by UNIQUE (replaced_by),\n  KEY ix_refresh_session_expiry (session_id, expires_at),\n  KEY ix_refresh_next_session (replaced_by, session_id),\n  CONSTRAINT ck_refresh_token_hash CHECK (REGEXP_LIKE(token_hash, '^[0-9a-f]{64}$', 'c')),\n  CONSTRAINT ck_refresh_expires CHECK (expires_at > created_at),\n  CONSTRAINT ck_refresh_replacement CHECK (\n    replaced_by IS NULL OR (replaced_by <> id AND consumed_at IS NOT NULL)\n  )\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "media_assets",
+      "owner": "M01",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "purpose",
+          "definition": "VARCHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "bucket",
+          "definition": "VARCHAR(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "object_key",
+          "definition": "VARCHAR(512) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "safe_object_key",
+          "definition": "VARCHAR(512) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "content_type",
+          "definition": "VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "size_bytes",
+          "definition": "BIGINT NOT NULL"
+        },
+        {
+          "name": "checksum_sha256",
+          "definition": "CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "status",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'pending'"
+        },
+        {
+          "name": "error_code",
+          "definition": "VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "expires_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE media_assets (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  purpose VARCHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  bucket VARCHAR(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  object_key VARCHAR(512) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  safe_object_key VARCHAR(512) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  content_type VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  size_bytes BIGINT NOT NULL,\n  checksum_sha256 CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'pending',\n  error_code VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  expires_at DATETIME(3) NULL,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  CONSTRAINT uq_media_bucket_object UNIQUE (bucket, object_key),\n  CONSTRAINT uq_media_id_user UNIQUE (id, user_id),\n  KEY ix_media_user_created (user_id, created_at DESC, id DESC),\n  KEY ix_media_status_expiry (status, expires_at, id),\n  CONSTRAINT ck_media_purpose CHECK (purpose IN (\n    'meal_photo', 'avatar', 'course_cover', 'course_video', 'activity_cover', 'reward_image'\n  )),\n  CONSTRAINT ck_media_private_owner CHECK (purpose NOT IN ('meal_photo', 'avatar') OR user_id IS NOT NULL),\n  CONSTRAINT ck_media_bucket CHECK (REGEXP_LIKE(bucket, '^[A-Za-z0-9._-]{1,100}$', 'c')),\n  CONSTRAINT ck_media_object_key CHECK (REGEXP_LIKE(object_key, '^[A-Za-z0-9][A-Za-z0-9._/-]{0,511}$', 'c')),\n  CONSTRAINT ck_media_safe_key CHECK (\n    safe_object_key IS NULL OR REGEXP_LIKE(safe_object_key, '^[A-Za-z0-9][A-Za-z0-9._/-]{0,511}$', 'c')\n  ),\n  CONSTRAINT ck_media_content_type CHECK (\n    (purpose = 'course_video' AND content_type IN ('video/mp4', 'video/webm')) OR\n    (purpose <> 'course_video' AND content_type IN ('image/jpeg', 'image/png', 'image/webp', 'image/heic'))\n  ),\n  CONSTRAINT ck_media_size CHECK (size_bytes > 0),\n  CONSTRAINT ck_media_checksum CHECK (REGEXP_LIKE(checksum_sha256, '^[0-9a-f]{64}$', 'c')),\n  CONSTRAINT ck_media_status CHECK (status IN ('pending', 'validating', 'ready', 'rejected')),\n  CONSTRAINT ck_media_ready_key CHECK (status <> 'ready' OR safe_object_key IS NOT NULL),\n  CONSTRAINT ck_media_error_code CHECK (\n    error_code IS NULL OR REGEXP_LIKE(error_code, '^[A-Za-z0-9_.:-]{1,64}$', 'c')\n  ),\n  CONSTRAINT ck_media_rejected_error CHECK (status <> 'rejected' OR error_code IS NOT NULL)\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "notification_subscriptions",
+      "owner": "M01",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "device_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "channel",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "provider",
+          "definition": "VARCHAR(24) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "endpoint_ciphertext",
+          "definition": "TEXT NULL"
+        },
+        {
+          "name": "endpoint_hash",
+          "definition": "CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "keys_ciphertext",
+          "definition": "TEXT NULL"
+        },
+        {
+          "name": "token_ciphertext",
+          "definition": "TEXT NULL"
+        },
+        {
+          "name": "token_hash",
+          "definition": "CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "enabled",
+          "definition": "BOOLEAN NOT NULL DEFAULT TRUE"
+        },
+        {
+          "name": "last_used_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE notification_subscriptions (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  device_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  channel VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  provider VARCHAR(24) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  endpoint_ciphertext TEXT NULL,\n  endpoint_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  keys_ciphertext TEXT NULL,\n  token_ciphertext TEXT NULL,\n  token_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  enabled BOOLEAN NOT NULL DEFAULT TRUE,\n  last_used_at DATETIME(3) NULL,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  CONSTRAINT uq_subscriptions_endpoint UNIQUE (endpoint_hash),\n  CONSTRAINT uq_subscriptions_token UNIQUE (token_hash),\n  CONSTRAINT uq_subscriptions_id_user UNIQUE (id, user_id),\n  KEY ix_subscriptions_user_device (user_id, device_id, enabled),\n  CONSTRAINT ck_subscriptions_channel CHECK (channel IN ('web_push', 'app_push')),\n  CONSTRAINT ck_subscriptions_provider CHECK (provider IS NULL OR provider IN ('apns', 'fcm', 'vendor')),\n  CONSTRAINT ck_subscriptions_endpoint_hash CHECK (\n    endpoint_hash IS NULL OR REGEXP_LIKE(endpoint_hash, '^[0-9a-f]{64}$', 'c')\n  ),\n  CONSTRAINT ck_subscriptions_token_hash CHECK (\n    token_hash IS NULL OR REGEXP_LIKE(token_hash, '^[0-9a-f]{64}$', 'c')\n  ),\n  CONSTRAINT ck_subscriptions_enabled CHECK (enabled IN (0, 1)),\n  CONSTRAINT ck_subscriptions_fields CHECK (\n    (channel = 'web_push' AND provider IS NULL AND\n      token_ciphertext IS NULL AND token_hash IS NULL AND (\n        (endpoint_ciphertext IS NOT NULL AND endpoint_hash IS NOT NULL AND keys_ciphertext IS NOT NULL) OR\n        (enabled = 0 AND endpoint_ciphertext IS NULL AND endpoint_hash IS NULL AND keys_ciphertext IS NULL)\n      )) OR\n    (channel = 'app_push' AND provider IS NOT NULL AND\n      endpoint_ciphertext IS NULL AND endpoint_hash IS NULL AND keys_ciphertext IS NULL AND (\n        (token_ciphertext IS NOT NULL AND token_hash IS NOT NULL) OR\n        (enabled = 0 AND token_ciphertext IS NULL AND token_hash IS NULL)\n      ))\n  )\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "notifications",
+      "owner": "M01",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "type",
+          "definition": "VARCHAR(40) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "title",
+          "definition": "VARCHAR(100) NOT NULL"
+        },
+        {
+          "name": "body",
+          "definition": "VARCHAR(500) NOT NULL"
+        },
+        {
+          "name": "action_path",
+          "definition": "VARCHAR(200) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "event_key",
+          "definition": "VARCHAR(200) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "read_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE notifications (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  type VARCHAR(40) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  title VARCHAR(100) NOT NULL,\n  body VARCHAR(500) NOT NULL,\n  action_path VARCHAR(200) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  event_key VARCHAR(200) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  read_at DATETIME(3) NULL,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  CONSTRAINT uq_notifications_user_event UNIQUE (user_id, event_key),\n  CONSTRAINT uq_notifications_id_user UNIQUE (id, user_id),\n  KEY ix_notifications_user_created (user_id, created_at DESC, id DESC),\n  KEY ix_notifications_user_unread (user_id, read_at, created_at DESC, id DESC),\n  CONSTRAINT ck_notifications_type CHECK (type IN (\n    'training_reminder', 'booking_confirmed', 'booking_canceled', 'activity_canceled', 'redemption_result'\n  )),\n  CONSTRAINT ck_notifications_title CHECK (CHAR_LENGTH(TRIM(title)) BETWEEN 1 AND 100),\n  CONSTRAINT ck_notifications_body CHECK (CHAR_LENGTH(body) BETWEEN 1 AND 500),\n  CONSTRAINT ck_notifications_action CHECK (LEFT(action_path, 1) = '/' AND LEFT(action_path, 2) <> '//'),\n  CONSTRAINT ck_notifications_event_key CHECK (REGEXP_LIKE(event_key, '^[A-Za-z0-9_.:@/-]{1,200}$', 'c'))\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "notification_deliveries",
+      "owner": "M01",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "notification_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "subscription_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "status",
+          "definition": "VARCHAR(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'queued'"
+        },
+        {
+          "name": "provider_message_id",
+          "definition": "VARCHAR(200) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "attempts",
+          "definition": "INT NOT NULL DEFAULT 0"
+        },
+        {
+          "name": "last_error_code",
+          "definition": "VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "sent_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "next_attempt_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "locked_by",
+          "definition": "VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "locked_until",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "lease_version",
+          "definition": "BIGINT NOT NULL DEFAULT 0"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE notification_deliveries (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  notification_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  subscription_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  status VARCHAR(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'queued',\n  provider_message_id VARCHAR(200) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  attempts INT NOT NULL DEFAULT 0,\n  last_error_code VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  sent_at DATETIME(3) NULL,\n  next_attempt_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  locked_by VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  locked_until DATETIME(3) NULL,\n  lease_version BIGINT NOT NULL DEFAULT 0,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  CONSTRAINT uq_deliveries_notice_device UNIQUE (notification_id, subscription_id),\n  KEY ix_deliveries_notice_user (notification_id, user_id),\n  KEY ix_deliveries_sub_user (subscription_id, user_id),\n  KEY ix_deliveries_due (status, next_attempt_at, id),\n  KEY ix_deliveries_lease (locked_until, id),\n  CONSTRAINT ck_deliveries_status CHECK (status IN ('queued', 'sent', 'failed', 'invalid_subscription')),\n  CONSTRAINT ck_deliveries_provider_id CHECK (\n    provider_message_id IS NULL OR CHAR_LENGTH(provider_message_id) BETWEEN 1 AND 200\n  ),\n  CONSTRAINT ck_deliveries_attempts CHECK (attempts >= 0),\n  CONSTRAINT ck_deliveries_error_code CHECK (\n    last_error_code IS NULL OR REGEXP_LIKE(last_error_code, '^[A-Za-z0-9_.:-]{1,80}$', 'c')\n  ),\n  CONSTRAINT ck_deliveries_sent CHECK (status <> 'sent' OR sent_at IS NOT NULL),\n  CONSTRAINT ck_deliveries_lock_owner CHECK (\n    locked_by IS NULL OR REGEXP_LIKE(locked_by, '^[A-Za-z0-9_.:-]{1,64}$', 'c')\n  ),\n  CONSTRAINT ck_deliveries_lease_pair CHECK (\n    (locked_by IS NULL AND locked_until IS NULL) OR (locked_by IS NOT NULL AND locked_until IS NOT NULL)\n  ),\n  CONSTRAINT ck_deliveries_lease_state CHECK (locked_by IS NULL OR status = 'queued'),\n  CONSTRAINT ck_deliveries_lease_version CHECK (lease_version >= 0)\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "idempotency_requests",
+      "owner": "M01",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "principal_key",
+          "definition": "VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "method",
+          "definition": "VARCHAR(8) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "request_path",
+          "definition": "VARCHAR(250) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "idempotency_key",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "body_hash",
+          "definition": "CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "status",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'processing'"
+        },
+        {
+          "name": "response_status",
+          "definition": "SMALLINT NULL"
+        },
+        {
+          "name": "response_body",
+          "definition": "JSON NULL"
+        },
+        {
+          "name": "expires_at",
+          "definition": "DATETIME(3) NOT NULL"
+        },
+        {
+          "name": "locked_by",
+          "definition": "VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "locked_until",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "lease_version",
+          "definition": "BIGINT NOT NULL DEFAULT 1"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE idempotency_requests (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  principal_key VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  method VARCHAR(8) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  request_path VARCHAR(250) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  idempotency_key CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  body_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'processing',\n  response_status SMALLINT NULL,\n  response_body JSON NULL,\n  expires_at DATETIME(3) NOT NULL,\n  locked_by VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  locked_until DATETIME(3) NULL,\n  lease_version BIGINT NOT NULL DEFAULT 1,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  CONSTRAINT uq_idempotency_scope UNIQUE (principal_key, method, request_path, idempotency_key),\n  KEY ix_idempotency_expiry (expires_at),\n  KEY ix_idempotency_lease (status, locked_until, id),\n  CONSTRAINT ck_idempotency_principal CHECK (REGEXP_LIKE(principal_key, '^[A-Za-z0-9_.:-]{1,128}$', 'c')),\n  CONSTRAINT ck_idempotency_method CHECK (method IN ('POST', 'PUT', 'PATCH', 'DELETE')),\n  CONSTRAINT ck_idempotency_path CHECK (LEFT(request_path, 1) = '/' AND LEFT(request_path, 2) <> '//'),\n  CONSTRAINT ck_idempotency_body_hash CHECK (REGEXP_LIKE(body_hash, '^[0-9a-f]{64}$', 'c')),\n  CONSTRAINT ck_idempotency_status CHECK (status IN ('processing', 'completed', 'failed')),\n  CONSTRAINT ck_idempotency_http_status CHECK (response_status IS NULL OR response_status BETWEEN 200 AND 599),\n  CONSTRAINT ck_idempotency_expiry CHECK (expires_at > created_at),\n  CONSTRAINT ck_idempotency_lock_owner CHECK (\n    locked_by IS NULL OR REGEXP_LIKE(locked_by, '^[A-Za-z0-9_.:-]{1,64}$', 'c')\n  ),\n  CONSTRAINT ck_idempotency_lease_version CHECK (lease_version >= 1),\n  CONSTRAINT ck_idempotency_state_fields CHECK (\n    (status = 'processing' AND locked_by IS NOT NULL AND locked_until IS NOT NULL AND\n      response_status IS NULL AND response_body IS NULL) OR\n    (status = 'completed' AND locked_by IS NULL AND locked_until IS NULL AND response_status IS NOT NULL AND response_status BETWEEN 200 AND 299) OR\n    (status = 'failed' AND locked_by IS NULL AND locked_until IS NULL AND response_status IS NOT NULL AND response_status BETWEEN 400 AND 599)\n  )\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "outbox_events",
+      "owner": "M01",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "event_type",
+          "definition": "VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "aggregate_type",
+          "definition": "VARCHAR(40) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "aggregate_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "event_key",
+          "definition": "VARCHAR(200) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "schema_version",
+          "definition": "INT NOT NULL DEFAULT 1"
+        },
+        {
+          "name": "payload",
+          "definition": "JSON NOT NULL"
+        },
+        {
+          "name": "status",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'pending'"
+        },
+        {
+          "name": "attempts",
+          "definition": "INT NOT NULL DEFAULT 0"
+        },
+        {
+          "name": "next_attempt_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "published_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "locked_by",
+          "definition": "VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "locked_until",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "lease_version",
+          "definition": "BIGINT NOT NULL DEFAULT 0"
+        },
+        {
+          "name": "last_error_code",
+          "definition": "VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE outbox_events (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  event_type VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  aggregate_type VARCHAR(40) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  aggregate_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  event_key VARCHAR(200) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  schema_version INT NOT NULL DEFAULT 1,\n  payload JSON NOT NULL,\n  status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'pending',\n  attempts INT NOT NULL DEFAULT 0,\n  next_attempt_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  published_at DATETIME(3) NULL,\n  locked_by VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  locked_until DATETIME(3) NULL,\n  lease_version BIGINT NOT NULL DEFAULT 0,\n  last_error_code VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  CONSTRAINT uq_outbox_event_key UNIQUE (event_key),\n  KEY ix_outbox_due (status, next_attempt_at, id),\n  KEY ix_outbox_lease (status, locked_until, id),\n  KEY ix_outbox_aggregate (aggregate_type, aggregate_id, created_at, id),\n  CONSTRAINT ck_outbox_event_type CHECK (REGEXP_LIKE(event_type, '^[a-z][a-z0-9_.-]{1,79}$', 'c')),\n  CONSTRAINT ck_outbox_aggregate_type CHECK (REGEXP_LIKE(aggregate_type, '^[a-z][a-z0-9_]{0,39}$', 'c')),\n  CONSTRAINT ck_outbox_event_key CHECK (REGEXP_LIKE(event_key, '^[A-Za-z0-9_.:@/-]{1,200}$', 'c')),\n  CONSTRAINT ck_outbox_schema_version CHECK (schema_version >= 1),\n  CONSTRAINT ck_outbox_payload CHECK (JSON_TYPE(payload) = 'OBJECT'),\n  CONSTRAINT ck_outbox_status CHECK (status IN ('pending', 'processing', 'published', 'failed')),\n  CONSTRAINT ck_outbox_attempts CHECK (attempts >= 0),\n  CONSTRAINT ck_outbox_lock_owner CHECK (\n    locked_by IS NULL OR REGEXP_LIKE(locked_by, '^[A-Za-z0-9_.:-]{1,64}$', 'c')\n  ),\n  CONSTRAINT ck_outbox_lease_version CHECK (lease_version >= 0),\n  CONSTRAINT ck_outbox_error_code CHECK (\n    last_error_code IS NULL OR REGEXP_LIKE(last_error_code, '^[A-Za-z0-9_.:-]{1,80}$', 'c')\n  ),\n  CONSTRAINT ck_outbox_state_fields CHECK (\n    (status = 'pending' AND locked_by IS NULL AND locked_until IS NULL AND published_at IS NULL) OR\n    (status = 'processing' AND locked_by IS NOT NULL AND locked_until IS NOT NULL AND published_at IS NULL) OR\n    (status = 'published' AND locked_by IS NULL AND locked_until IS NULL AND published_at IS NOT NULL) OR\n    (status = 'failed' AND locked_by IS NULL AND locked_until IS NULL AND published_at IS NULL)\n  )\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "user_roles",
+      "owner": "M01",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "role",
+          "definition": "VARCHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE user_roles (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  role VARCHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  CONSTRAINT uq_roles_user_role UNIQUE (user_id, role),\n  CONSTRAINT ck_roles_role CHECK (role IN ('user', 'admin'))\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "audit_logs",
+      "owner": "M01",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "actor_user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "action",
+          "definition": "VARCHAR(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "resource_type",
+          "definition": "VARCHAR(40) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "resource_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "request_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "change_summary",
+          "definition": "JSON NOT NULL"
+        },
+        {
+          "name": "occurred_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE audit_logs (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  actor_user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  action VARCHAR(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  resource_type VARCHAR(40) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  resource_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  request_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  change_summary JSON NOT NULL,\n  occurred_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  KEY ix_audit_resource_time (resource_type, resource_id, occurred_at, id),\n  KEY ix_audit_actor_time (actor_user_id, occurred_at, id),\n  KEY ix_audit_request (request_id),\n  CONSTRAINT ck_audit_action CHECK (REGEXP_LIKE(action, '^[A-Za-z0-9_.:-]{1,100}$', 'c')),\n  CONSTRAINT ck_audit_resource_type CHECK (REGEXP_LIKE(resource_type, '^[a-z][a-z0-9_]{0,39}$', 'c')),\n  CONSTRAINT ck_audit_summary CHECK (JSON_TYPE(change_summary) = 'OBJECT')\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "health_profiles",
+      "owner": "M02",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "height_cm",
+          "definition": "DECIMAL(4,1) NULL"
+        },
+        {
+          "name": "birth_year",
+          "definition": "SMALLINT NULL"
+        },
+        {
+          "name": "target_weight_kg",
+          "definition": "DECIMAL(4,1) NOT NULL"
+        },
+        {
+          "name": "water_target_ml",
+          "definition": "INT NOT NULL"
+        },
+        {
+          "name": "calorie_target_kcal",
+          "definition": "DECIMAL(6,1) NOT NULL"
+        },
+        {
+          "name": "carbs_target_g",
+          "definition": "DECIMAL(5,1) NULL"
+        },
+        {
+          "name": "protein_target_g",
+          "definition": "DECIMAL(5,1) NULL"
+        },
+        {
+          "name": "fat_target_g",
+          "definition": "DECIMAL(5,1) NULL"
+        },
+        {
+          "name": "goal_type",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "version",
+          "definition": "INT NOT NULL DEFAULT 1"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE health_profiles (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  height_cm DECIMAL(4,1) NULL,\n  birth_year SMALLINT NULL,\n  target_weight_kg DECIMAL(4,1) NOT NULL,\n  water_target_ml INT NOT NULL,\n  calorie_target_kcal DECIMAL(6,1) NOT NULL,\n  carbs_target_g DECIMAL(5,1) NULL,\n  protein_target_g DECIMAL(5,1) NULL,\n  fat_target_g DECIMAL(5,1) NULL,\n  goal_type VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  version INT NOT NULL DEFAULT 1,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  CONSTRAINT uq_health_profiles_user UNIQUE (user_id),\n  CONSTRAINT ck_health_height CHECK (height_cm IS NULL OR height_cm BETWEEN 50.0 AND 250.0),\n  CONSTRAINT ck_health_birth_year CHECK (birth_year IS NULL OR birth_year BETWEEN 1900 AND 9999),\n  CONSTRAINT ck_health_target_weight CHECK (target_weight_kg BETWEEN 20.0 AND 350.0),\n  CONSTRAINT ck_health_water_target CHECK (water_target_ml BETWEEN 500 AND 6000),\n  CONSTRAINT ck_health_calorie_target CHECK (calorie_target_kcal BETWEEN 800.0 AND 5000.0),\n  CONSTRAINT ck_health_carbs_target CHECK (carbs_target_g IS NULL OR carbs_target_g BETWEEN 0.0 AND 1000.0),\n  CONSTRAINT ck_health_protein_target CHECK (protein_target_g IS NULL OR protein_target_g BETWEEN 0.0 AND 1000.0),\n  CONSTRAINT ck_health_fat_target CHECK (fat_target_g IS NULL OR fat_target_g BETWEEN 0.0 AND 1000.0),\n  CONSTRAINT ck_health_goal_type CHECK (goal_type IN ('balanced', 'maintain', 'lose', 'gain')),\n  CONSTRAINT ck_health_version CHECK (version >= 1)\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "water_records",
+      "owner": "M02",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "amount_ml",
+          "definition": "INT NOT NULL"
+        },
+        {
+          "name": "recorded_at",
+          "definition": "DATETIME(3) NOT NULL"
+        },
+        {
+          "name": "business_date",
+          "definition": "DATE NOT NULL"
+        },
+        {
+          "name": "timezone",
+          "definition": "VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'Asia/Shanghai'"
+        },
+        {
+          "name": "source",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'manual'"
+        },
+        {
+          "name": "deleted_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE water_records (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  amount_ml INT NOT NULL,\n  recorded_at DATETIME(3) NOT NULL,\n  business_date DATE NOT NULL,\n  timezone VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'Asia/Shanghai',\n  source VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'manual',\n  deleted_at DATETIME(3) NULL,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  KEY ix_water_user_day_live_time (user_id, business_date, deleted_at, recorded_at DESC, id DESC),\n  CONSTRAINT ck_water_amount CHECK (amount_ml BETWEEN 1 AND 1000),\n  CONSTRAINT ck_water_timezone CHECK (timezone = 'Asia/Shanghai'),\n  CONSTRAINT ck_water_source CHECK (source = 'manual'),\n  CONSTRAINT ck_water_business_date CHECK (business_date = DATE(DATE_ADD(recorded_at, INTERVAL 8 HOUR)))\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "weight_records",
+      "owner": "M02",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "weight_kg",
+          "definition": "DECIMAL(4,1) NOT NULL"
+        },
+        {
+          "name": "recorded_at",
+          "definition": "DATETIME(3) NOT NULL"
+        },
+        {
+          "name": "business_date",
+          "definition": "DATE NOT NULL"
+        },
+        {
+          "name": "timezone",
+          "definition": "VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'Asia/Shanghai'"
+        },
+        {
+          "name": "source",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'manual'"
+        },
+        {
+          "name": "deleted_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE weight_records (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  weight_kg DECIMAL(4,1) NOT NULL,\n  recorded_at DATETIME(3) NOT NULL,\n  business_date DATE NOT NULL,\n  timezone VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'Asia/Shanghai',\n  source VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'manual',\n  deleted_at DATETIME(3) NULL,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  KEY ix_weight_user_day_live_time (user_id, business_date, deleted_at, recorded_at DESC, id DESC),\n  CONSTRAINT ck_weight_value CHECK (weight_kg BETWEEN 20.0 AND 350.0),\n  CONSTRAINT ck_weight_timezone CHECK (timezone = 'Asia/Shanghai'),\n  CONSTRAINT ck_weight_source CHECK (source = 'manual'),\n  CONSTRAINT ck_weight_business_date CHECK (business_date = DATE(DATE_ADD(recorded_at, INTERVAL 8 HOUR)))\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "foods",
+      "owner": "M03",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "name",
+          "definition": "VARCHAR(100) NOT NULL"
+        },
+        {
+          "name": "calories_per_100g",
+          "definition": "DECIMAL(6,1) NOT NULL"
+        },
+        {
+          "name": "carbs_per_100g",
+          "definition": "DECIMAL(5,1) NULL"
+        },
+        {
+          "name": "protein_per_100g",
+          "definition": "DECIMAL(5,1) NULL"
+        },
+        {
+          "name": "fat_per_100g",
+          "definition": "DECIMAL(5,1) NULL"
+        },
+        {
+          "name": "source",
+          "definition": "VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "status",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'published'"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE foods (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  name VARCHAR(100) NOT NULL,\n  calories_per_100g DECIMAL(6,1) NOT NULL,\n  carbs_per_100g DECIMAL(5,1) NULL,\n  protein_per_100g DECIMAL(5,1) NULL,\n  fat_per_100g DECIMAL(5,1) NULL,\n  source VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'published',\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  KEY ix_foods_status_name (status, name, id),\n  CONSTRAINT ck_foods_calories CHECK (calories_per_100g > 0 AND calories_per_100g <= 5000),\n  CONSTRAINT ck_foods_carbs CHECK (carbs_per_100g IS NULL OR carbs_per_100g BETWEEN 0 AND 100),\n  CONSTRAINT ck_foods_protein CHECK (protein_per_100g IS NULL OR protein_per_100g BETWEEN 0 AND 100),\n  CONSTRAINT ck_foods_fat CHECK (fat_per_100g IS NULL OR fat_per_100g BETWEEN 0 AND 100),\n  CONSTRAINT ck_foods_status CHECK (status IN ('draft','published','archived'))\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "recognition_jobs",
+      "owner": "M03",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "asset_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "meal_type_hint",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "status",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'queued'"
+        },
+        {
+          "name": "result",
+          "definition": "JSON NULL"
+        },
+        {
+          "name": "provider",
+          "definition": "VARCHAR(40) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "model",
+          "definition": "VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "error_code",
+          "definition": "VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "started_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "completed_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "run_token",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "lease_until",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "attempts",
+          "definition": "INT NOT NULL DEFAULT 0"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE recognition_jobs (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  asset_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  meal_type_hint VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'queued',\n  result JSON NULL,\n  provider VARCHAR(40) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  model VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  error_code VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  started_at DATETIME(3) NULL,\n  completed_at DATETIME(3) NULL,\n  run_token CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  lease_until DATETIME(3) NULL,\n  attempts INT NOT NULL DEFAULT 0,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  UNIQUE KEY uq_recognition_id_user (id, user_id),\n  UNIQUE KEY uq_recognition_id_user_asset (id, user_id, asset_id),\n  KEY ix_recognition_user_created (user_id, created_at DESC, id DESC),\n  KEY ix_recognition_asset_owner (asset_id, user_id),\n  KEY ix_recognition_status_lease (status, lease_until, id),\n  CONSTRAINT ck_recognition_status CHECK (status IN ('queued','running','succeeded','failed','canceled')),\n  CONSTRAINT ck_recognition_meal_hint CHECK (meal_type_hint IS NULL OR meal_type_hint IN ('breakfast','lunch','dinner','snack')),\n  CONSTRAINT ck_recognition_result CHECK (result IS NULL OR JSON_TYPE(result) = 'OBJECT'),\n  CONSTRAINT ck_recognition_result_state CHECK (status = 'succeeded' OR result IS NULL),\n  CONSTRAINT ck_recognition_success CHECK (status <> 'succeeded' OR (result IS NOT NULL AND completed_at IS NOT NULL)),\n  CONSTRAINT ck_recognition_terminal CHECK ((status IN ('queued','running') AND completed_at IS NULL) OR (status IN ('succeeded','failed','canceled') AND completed_at IS NOT NULL)),\n  CONSTRAINT ck_recognition_claim CHECK ((status = 'queued' AND started_at IS NULL AND run_token IS NULL AND lease_until IS NULL AND attempts = 0) OR (status = 'running' AND started_at IS NOT NULL AND run_token IS NOT NULL AND lease_until IS NOT NULL AND attempts >= 1) OR (status IN ('succeeded','failed','canceled') AND lease_until IS NULL)),\n  CONSTRAINT ck_recognition_success_claim CHECK (status <> 'succeeded' OR (started_at IS NOT NULL AND run_token IS NOT NULL AND attempts >= 1)),\n  CONSTRAINT ck_recognition_failure_code CHECK (status <> 'failed' OR error_code IS NOT NULL),\n  CONSTRAINT ck_recognition_time CHECK (started_at IS NULL OR completed_at IS NULL OR completed_at >= started_at),\n  CONSTRAINT ck_recognition_attempts CHECK (attempts >= 0)\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "meals",
+      "owner": "M03",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "meal_type",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "recorded_at",
+          "definition": "DATETIME(3) NOT NULL"
+        },
+        {
+          "name": "business_date",
+          "definition": "DATE NOT NULL"
+        },
+        {
+          "name": "timezone",
+          "definition": "VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'Asia/Shanghai'"
+        },
+        {
+          "name": "source",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "photo_asset_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "recognition_job_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "version",
+          "definition": "INT NOT NULL DEFAULT 1"
+        },
+        {
+          "name": "deleted_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE meals (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  meal_type VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  recorded_at DATETIME(3) NOT NULL,\n  business_date DATE NOT NULL,\n  timezone VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'Asia/Shanghai',\n  source VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  photo_asset_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  recognition_job_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  version INT NOT NULL DEFAULT 1,\n  deleted_at DATETIME(3) NULL,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  UNIQUE KEY uq_meals_recognition (recognition_job_id),\n  KEY ix_meals_user_date_live (user_id, business_date, deleted_at, recorded_at DESC, id DESC),\n  KEY ix_meals_photo_owner (photo_asset_id, user_id),\n  KEY ix_meals_job_owner_asset (recognition_job_id, user_id, photo_asset_id),\n  CONSTRAINT ck_meals_type CHECK (meal_type IN ('breakfast','lunch','dinner','snack')),\n  CONSTRAINT ck_meals_timezone CHECK (timezone = 'Asia/Shanghai'),\n  CONSTRAINT ck_meals_business_date CHECK (business_date = DATE(DATE_ADD(recorded_at, INTERVAL 8 HOUR))),\n  CONSTRAINT ck_meals_source CHECK (source IN ('manual','photo')),\n  CONSTRAINT ck_meals_photo CHECK (source <> 'photo' OR photo_asset_id IS NOT NULL),\n  CONSTRAINT ck_meals_job_photo CHECK (recognition_job_id IS NULL OR (source = 'photo' AND photo_asset_id IS NOT NULL)),\n  CONSTRAINT ck_meals_version CHECK (version >= 1)\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "meal_items",
+      "owner": "M03",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "meal_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "food_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "name",
+          "definition": "VARCHAR(100) NOT NULL"
+        },
+        {
+          "name": "grams",
+          "definition": "DECIMAL(7,1) NOT NULL"
+        },
+        {
+          "name": "calories_kcal",
+          "definition": "DECIMAL(7,1) NOT NULL"
+        },
+        {
+          "name": "carbs_g",
+          "definition": "DECIMAL(5,1) NULL"
+        },
+        {
+          "name": "protein_g",
+          "definition": "DECIMAL(5,1) NULL"
+        },
+        {
+          "name": "fat_g",
+          "definition": "DECIMAL(5,1) NULL"
+        },
+        {
+          "name": "nutrition_source",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "confidence",
+          "definition": "DECIMAL(4,3) NULL"
+        },
+        {
+          "name": "sort_order",
+          "definition": "SMALLINT NOT NULL"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE meal_items (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  meal_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  food_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  name VARCHAR(100) NOT NULL,\n  grams DECIMAL(7,1) NOT NULL,\n  calories_kcal DECIMAL(7,1) NOT NULL,\n  carbs_g DECIMAL(5,1) NULL,\n  protein_g DECIMAL(5,1) NULL,\n  fat_g DECIMAL(5,1) NULL,\n  nutrition_source VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  confidence DECIMAL(4,3) NULL,\n  sort_order SMALLINT NOT NULL,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  UNIQUE KEY uq_meal_items_order (meal_id, sort_order),\n  KEY ix_meal_items_food (food_id),\n  CONSTRAINT ck_meal_items_grams CHECK (grams > 0 AND grams <= 5000),\n  CONSTRAINT ck_meal_items_calories CHECK (calories_kcal > 0 AND calories_kcal <= 5000),\n  CONSTRAINT ck_meal_items_carbs CHECK (carbs_g IS NULL OR carbs_g BETWEEN 0 AND 1000),\n  CONSTRAINT ck_meal_items_protein CHECK (protein_g IS NULL OR protein_g BETWEEN 0 AND 1000),\n  CONSTRAINT ck_meal_items_fat CHECK (fat_g IS NULL OR fat_g BETWEEN 0 AND 1000),\n  CONSTRAINT ck_meal_items_source CHECK (nutrition_source IN ('catalog','model','user')),\n  CONSTRAINT ck_meal_items_catalog CHECK (nutrition_source <> 'catalog' OR food_id IS NOT NULL),\n  CONSTRAINT ck_meal_items_confidence CHECK (confidence IS NULL OR confidence BETWEEN 0 AND 1),\n  CONSTRAINT ck_meal_items_order CHECK (sort_order BETWEEN 0 AND 29)\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "restaurants",
+      "owner": "M03",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "provider",
+          "definition": "VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "provider_place_id",
+          "definition": "VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "name",
+          "definition": "VARCHAR(150) NOT NULL"
+        },
+        {
+          "name": "address",
+          "definition": "TEXT NOT NULL"
+        },
+        {
+          "name": "latitude",
+          "definition": "DECIMAL(9,6) NOT NULL"
+        },
+        {
+          "name": "longitude",
+          "definition": "DECIMAL(9,6) NOT NULL"
+        },
+        {
+          "name": "coordinate_system",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'wgs84'"
+        },
+        {
+          "name": "rating",
+          "definition": "DECIMAL(4,2) NULL"
+        },
+        {
+          "name": "rating_scale_max",
+          "definition": "DECIMAL(4,2) NULL"
+        },
+        {
+          "name": "price_cents",
+          "definition": "INT NULL"
+        },
+        {
+          "name": "currency",
+          "definition": "CHAR(3) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'CNY'"
+        },
+        {
+          "name": "tags",
+          "definition": "JSON NOT NULL"
+        },
+        {
+          "name": "cover_url",
+          "definition": "TEXT NULL"
+        },
+        {
+          "name": "nutrition_verified",
+          "definition": "BOOLEAN NOT NULL DEFAULT FALSE"
+        },
+        {
+          "name": "estimated_calories_kcal",
+          "definition": "DECIMAL(7,1) NULL"
+        },
+        {
+          "name": "status",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'available'"
+        },
+        {
+          "name": "source_updated_at",
+          "definition": "DATETIME(3) NOT NULL"
+        },
+        {
+          "name": "cache_expires_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE restaurants (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  provider VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  provider_place_id VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  name VARCHAR(150) NOT NULL,\n  address TEXT NOT NULL,\n  latitude DECIMAL(9,6) NOT NULL,\n  longitude DECIMAL(9,6) NOT NULL,\n  coordinate_system VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'wgs84',\n  rating DECIMAL(4,2) NULL,\n  rating_scale_max DECIMAL(4,2) NULL,\n  price_cents INT NULL,\n  currency CHAR(3) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'CNY',\n  tags JSON NOT NULL,\n  cover_url TEXT NULL,\n  nutrition_verified BOOLEAN NOT NULL DEFAULT FALSE,\n  estimated_calories_kcal DECIMAL(7,1) NULL,\n  status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'available',\n  source_updated_at DATETIME(3) NOT NULL,\n  cache_expires_at DATETIME(3) NULL,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  UNIQUE KEY uq_restaurants_provider_place (provider, provider_place_id),\n  KEY ix_restaurants_status (status, id),\n  CONSTRAINT ck_restaurants_latitude CHECK (latitude BETWEEN -90 AND 90),\n  CONSTRAINT ck_restaurants_longitude CHECK (longitude BETWEEN -180 AND 180),\n  CONSTRAINT ck_restaurants_coordinates CHECK (coordinate_system = 'wgs84'),\n  CONSTRAINT ck_restaurants_rating CHECK ((rating IS NULL AND rating_scale_max IS NULL) OR (rating IS NOT NULL AND rating_scale_max IS NOT NULL AND rating >= 0 AND rating_scale_max > 0 AND rating <= rating_scale_max)),\n  CONSTRAINT ck_restaurants_price CHECK (price_cents IS NULL OR price_cents >= 0),\n  CONSTRAINT ck_restaurants_currency CHECK (currency = 'CNY'),\n  CONSTRAINT ck_restaurants_tags CHECK (JSON_TYPE(tags) = 'ARRAY'),\n  CONSTRAINT ck_restaurants_nutrition_flag CHECK (nutrition_verified IN (0,1)),\n  CONSTRAINT ck_restaurants_calories CHECK (estimated_calories_kcal IS NULL OR estimated_calories_kcal >= 0),\n  CONSTRAINT ck_restaurants_status CHECK (status IN ('available','unavailable'))\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "restaurant_favorites",
+      "owner": "M03",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "restaurant_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE restaurant_favorites (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  restaurant_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  UNIQUE KEY uq_favorites_user_restaurant (user_id, restaurant_id),\n  KEY ix_favorites_user_created (user_id, created_at DESC, id DESC),\n  KEY ix_favorites_restaurant (restaurant_id)\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "training_courses",
+      "owner": "M04",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "title",
+          "definition": "VARCHAR(100) NOT NULL"
+        },
+        {
+          "name": "category",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "level",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "description",
+          "definition": "TEXT NOT NULL"
+        },
+        {
+          "name": "cover_asset_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "video_asset_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "estimated_duration_seconds",
+          "definition": "INT NOT NULL"
+        },
+        {
+          "name": "estimated_calories_kcal",
+          "definition": "DECIMAL(7,1) NOT NULL"
+        },
+        {
+          "name": "status",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'draft'"
+        },
+        {
+          "name": "version",
+          "definition": "INT NOT NULL DEFAULT 1"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE training_courses (\n    id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    title VARCHAR(100) NOT NULL,\n    category VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    level VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    description TEXT NOT NULL,\n    cover_asset_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n    video_asset_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n    estimated_duration_seconds INT NOT NULL,\n    estimated_calories_kcal DECIMAL(7,1) NOT NULL,\n    status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'draft',\n    version INT NOT NULL DEFAULT 1,\n    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n    PRIMARY KEY (id),\n    KEY ix_training_courses_catalog (status, category, level, id),\n    KEY ix_training_courses_cover (cover_asset_id),\n    KEY ix_training_courses_video (video_asset_id),\n    CONSTRAINT ck_training_courses_title CHECK (CHAR_LENGTH(TRIM(title)) BETWEEN 1 AND 100),\n    CONSTRAINT ck_training_courses_category CHECK (category IN ('stretch', 'strength', 'cardio')),\n    CONSTRAINT ck_training_courses_level CHECK (level IN ('beginner', 'intermediate')),\n    CONSTRAINT ck_training_courses_duration CHECK (estimated_duration_seconds BETWEEN 60 AND 14400),\n    CONSTRAINT ck_training_courses_calories CHECK (estimated_calories_kcal >= 0),\n    CONSTRAINT ck_training_courses_status CHECK (status IN ('draft', 'published', 'archived')),\n    CONSTRAINT ck_training_courses_version CHECK (version >= 1)\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "training_plan_templates",
+      "owner": "M04",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "title",
+          "definition": "VARCHAR(100) NOT NULL"
+        },
+        {
+          "name": "description",
+          "definition": "TEXT NOT NULL"
+        },
+        {
+          "name": "status",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'draft'"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE training_plan_templates (\n    id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    title VARCHAR(100) NOT NULL,\n    description TEXT NOT NULL,\n    status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'draft',\n    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n    PRIMARY KEY (id),\n    KEY ix_training_plan_templates_status (status, id),\n    CONSTRAINT ck_training_plan_templates_title CHECK (CHAR_LENGTH(TRIM(title)) BETWEEN 1 AND 100),\n    CONSTRAINT ck_training_plan_templates_status CHECK (status IN ('draft', 'published', 'archived'))\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "training_template_items",
+      "owner": "M04",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "template_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "day_offset",
+          "definition": "SMALLINT NOT NULL"
+        },
+        {
+          "name": "course_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "rest_day",
+          "definition": "BOOLEAN NOT NULL"
+        },
+        {
+          "name": "sort_order",
+          "definition": "SMALLINT NOT NULL DEFAULT 0"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE training_template_items (\n    id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    template_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    day_offset SMALLINT NOT NULL,\n    course_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n    rest_day BOOLEAN NOT NULL,\n    sort_order SMALLINT NOT NULL DEFAULT 0,\n    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n    PRIMARY KEY (id),\n    UNIQUE KEY uq_training_template_items_order (template_id, day_offset, sort_order),\n    KEY ix_training_template_items_course (course_id),\n    CONSTRAINT ck_training_template_items_day CHECK (day_offset BETWEEN 0 AND 27),\n    CONSTRAINT ck_training_template_items_rest_bool CHECK (rest_day IN (0, 1)),\n    CONSTRAINT ck_training_template_items_order CHECK (sort_order >= 0),\n    CONSTRAINT ck_training_template_items_rest_course CHECK (\n        (rest_day = 1 AND course_id IS NULL)\n        OR (rest_day = 0 AND course_id IS NOT NULL)\n    )\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "training_plans",
+      "owner": "M04",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "template_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "title",
+          "definition": "VARCHAR(100) NOT NULL"
+        },
+        {
+          "name": "start_date",
+          "definition": "DATE NOT NULL"
+        },
+        {
+          "name": "end_date",
+          "definition": "DATE NOT NULL"
+        },
+        {
+          "name": "status",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'active'"
+        },
+        {
+          "name": "active_user_guard",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE training_plans (\n    id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    template_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n    title VARCHAR(100) NOT NULL,\n    start_date DATE NOT NULL,\n    end_date DATE NOT NULL,\n    status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'active',\n    active_user_guard CHAR(36) CHARACTER SET ascii COLLATE ascii_bin\n        GENERATED ALWAYS AS (CASE WHEN status = 'active' THEN user_id ELSE NULL END) STORED,\n    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n    PRIMARY KEY (id),\n    UNIQUE KEY uq_training_plans_active_user (active_user_guard),\n    KEY ix_training_plans_user_dates (user_id, start_date, end_date, id),\n    KEY ix_training_plans_template (template_id),\n    CONSTRAINT ck_training_plans_title CHECK (CHAR_LENGTH(TRIM(title)) BETWEEN 1 AND 100),\n    CONSTRAINT ck_training_plans_dates CHECK (end_date >= start_date),\n    CONSTRAINT ck_training_plans_status CHECK (status IN ('active', 'archived'))\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "training_plan_items",
+      "owner": "M04",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "plan_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "scheduled_date",
+          "definition": "DATE NOT NULL"
+        },
+        {
+          "name": "course_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "rest_day",
+          "definition": "BOOLEAN NOT NULL"
+        },
+        {
+          "name": "sort_order",
+          "definition": "SMALLINT NOT NULL DEFAULT 0"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE training_plan_items (\n    id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    plan_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    scheduled_date DATE NOT NULL,\n    course_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n    rest_day BOOLEAN NOT NULL,\n    sort_order SMALLINT NOT NULL DEFAULT 0,\n    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n    PRIMARY KEY (id),\n    UNIQUE KEY uq_training_plan_items_order (plan_id, scheduled_date, sort_order),\n    KEY ix_training_plan_items_course (course_id),\n    CONSTRAINT ck_training_plan_items_rest_bool CHECK (rest_day IN (0, 1)),\n    CONSTRAINT ck_training_plan_items_order CHECK (sort_order >= 0),\n    CONSTRAINT ck_training_plan_items_rest_course CHECK (\n        (rest_day = 1 AND course_id IS NULL)\n        OR (rest_day = 0 AND course_id IS NOT NULL)\n    )\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "workout_sessions",
+      "owner": "M04",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "course_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "status",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'active'"
+        },
+        {
+          "name": "started_at",
+          "definition": "DATETIME(3) NOT NULL"
+        },
+        {
+          "name": "active_since",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "accumulated_seconds",
+          "definition": "INT NOT NULL DEFAULT 0"
+        },
+        {
+          "name": "ended_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "business_date",
+          "definition": "DATE NULL"
+        },
+        {
+          "name": "duration_snapshot_seconds",
+          "definition": "INT NOT NULL"
+        },
+        {
+          "name": "calories_snapshot_kcal",
+          "definition": "DECIMAL(7,1) NOT NULL"
+        },
+        {
+          "name": "reward_threshold_seconds",
+          "definition": "INT NOT NULL"
+        },
+        {
+          "name": "active_duration_seconds",
+          "definition": "INT NOT NULL DEFAULT 0"
+        },
+        {
+          "name": "estimated_calories_kcal",
+          "definition": "DECIMAL(7,1) NOT NULL DEFAULT 0"
+        },
+        {
+          "name": "reward_eligible",
+          "definition": "BOOLEAN NOT NULL DEFAULT FALSE"
+        },
+        {
+          "name": "version",
+          "definition": "INT NOT NULL DEFAULT 1"
+        },
+        {
+          "name": "open_user_guard",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE workout_sessions (\n    id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    course_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'active',\n    started_at DATETIME(3) NOT NULL,\n    active_since DATETIME(3) NULL,\n    accumulated_seconds INT NOT NULL DEFAULT 0,\n    ended_at DATETIME(3) NULL,\n    business_date DATE NULL,\n    duration_snapshot_seconds INT NOT NULL,\n    calories_snapshot_kcal DECIMAL(7,1) NOT NULL,\n    reward_threshold_seconds INT NOT NULL,\n    active_duration_seconds INT NOT NULL DEFAULT 0,\n    estimated_calories_kcal DECIMAL(7,1) NOT NULL DEFAULT 0,\n    reward_eligible BOOLEAN NOT NULL DEFAULT FALSE,\n    version INT NOT NULL DEFAULT 1,\n    open_user_guard CHAR(36) CHARACTER SET ascii COLLATE ascii_bin\n        GENERATED ALWAYS AS (CASE WHEN status IN ('active', 'paused') THEN user_id ELSE NULL END) STORED,\n    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n    PRIMARY KEY (id),\n    UNIQUE KEY uq_workout_sessions_open_user (open_user_guard),\n    KEY ix_workout_sessions_user_date (user_id, business_date, status, id),\n    KEY ix_workout_sessions_course (course_id),\n    CONSTRAINT ck_workout_sessions_status CHECK (status IN ('active', 'paused', 'completed', 'abandoned')),\n    CONSTRAINT ck_workout_sessions_accumulated CHECK (accumulated_seconds >= 0),\n    CONSTRAINT ck_workout_sessions_active_duration CHECK (active_duration_seconds >= 0),\n    CONSTRAINT ck_workout_sessions_settled_duration CHECK (active_duration_seconds = accumulated_seconds),\n    CONSTRAINT ck_workout_sessions_duration_snapshot CHECK (duration_snapshot_seconds BETWEEN 60 AND 14400),\n    CONSTRAINT ck_workout_sessions_calories_snapshot CHECK (calories_snapshot_kcal >= 0),\n    CONSTRAINT ck_workout_sessions_reward_threshold CHECK (\n        reward_threshold_seconds BETWEEN 1 AND duration_snapshot_seconds\n    ),\n    CONSTRAINT ck_workout_sessions_estimated_calories CHECK (\n        estimated_calories_kcal >= 0 AND estimated_calories_kcal <= calories_snapshot_kcal\n    ),\n    CONSTRAINT ck_workout_sessions_reward_bool CHECK (reward_eligible IN (0, 1)),\n    CONSTRAINT ck_workout_sessions_version CHECK (version >= 1),\n    CONSTRAINT ck_workout_sessions_active_time CHECK (active_since IS NULL OR active_since >= started_at),\n    CONSTRAINT ck_workout_sessions_end_time CHECK (ended_at IS NULL OR ended_at >= started_at),\n    CONSTRAINT ck_workout_sessions_terminal_duration CHECK (\n        ended_at IS NULL OR active_duration_seconds <= TIMESTAMPDIFF(SECOND, started_at, ended_at)\n    ),\n    CONSTRAINT ck_workout_sessions_business_date CHECK (\n        ended_at IS NULL OR business_date = DATE(DATE_ADD(ended_at, INTERVAL 8 HOUR))\n    ),\n    CONSTRAINT ck_workout_sessions_state_shape CHECK (\n        (status = 'active' AND active_since IS NOT NULL AND ended_at IS NULL AND business_date IS NULL)\n        OR (status = 'paused' AND active_since IS NULL AND ended_at IS NULL AND business_date IS NULL)\n        OR (status IN ('completed', 'abandoned') AND active_since IS NULL AND ended_at IS NOT NULL AND business_date IS NOT NULL)\n    ),\n    CONSTRAINT ck_workout_sessions_uncompleted_outcome CHECK (\n        status = 'completed' OR (reward_eligible = 0 AND estimated_calories_kcal = 0)\n    ),\n    CONSTRAINT ck_workout_sessions_completed_reward CHECK (\n        status <> 'completed'\n        OR (reward_eligible = 1 AND active_duration_seconds >= reward_threshold_seconds)\n        OR (reward_eligible = 0 AND active_duration_seconds < reward_threshold_seconds)\n    )\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "training_reminders",
+      "owner": "M04",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "enabled",
+          "definition": "BOOLEAN NOT NULL DEFAULT FALSE"
+        },
+        {
+          "name": "local_time",
+          "definition": "TIME NOT NULL"
+        },
+        {
+          "name": "timezone",
+          "definition": "VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'Asia/Shanghai'"
+        },
+        {
+          "name": "weekdays",
+          "definition": "JSON NOT NULL"
+        },
+        {
+          "name": "channels",
+          "definition": "JSON NOT NULL"
+        },
+        {
+          "name": "skip_if_completed",
+          "definition": "BOOLEAN NOT NULL DEFAULT TRUE"
+        },
+        {
+          "name": "next_trigger_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "version",
+          "definition": "INT NOT NULL DEFAULT 1"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE training_reminders (\n    id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    enabled BOOLEAN NOT NULL DEFAULT FALSE,\n    local_time TIME NOT NULL,\n    timezone VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'Asia/Shanghai',\n    weekdays JSON NOT NULL,\n    channels JSON NOT NULL,\n    skip_if_completed BOOLEAN NOT NULL DEFAULT TRUE,\n    next_trigger_at DATETIME(3) NULL,\n    version INT NOT NULL DEFAULT 1,\n    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n    PRIMARY KEY (id),\n    UNIQUE KEY uq_training_reminders_user (user_id),\n    KEY ix_training_reminders_trigger (enabled, next_trigger_at, id),\n    CONSTRAINT ck_training_reminders_enabled_bool CHECK (enabled IN (0, 1)),\n    CONSTRAINT ck_training_reminders_skip_bool CHECK (skip_if_completed IN (0, 1)),\n    CONSTRAINT ck_training_reminders_time CHECK (\n        local_time >= '00:00:00' AND local_time < '24:00:00' AND SECOND(local_time) = 0\n    ),\n    CONSTRAINT ck_training_reminders_timezone CHECK (timezone = 'Asia/Shanghai'),\n    CONSTRAINT ck_training_reminders_weekdays_array CHECK (\n        JSON_TYPE(weekdays) = 'ARRAY' AND JSON_LENGTH(weekdays) <= 7\n    ),\n    CONSTRAINT ck_training_reminders_channels_array CHECK (\n        JSON_TYPE(channels) = 'ARRAY' AND JSON_LENGTH(channels) <= 3\n    ),\n    CONSTRAINT ck_training_reminders_enabled_shape CHECK (\n        (enabled = 0 AND next_trigger_at IS NULL)\n        OR (enabled = 1 AND next_trigger_at IS NOT NULL AND JSON_LENGTH(weekdays) >= 1 AND JSON_LENGTH(channels) >= 1)\n    ),\n    CONSTRAINT ck_training_reminders_version CHECK (version >= 1)\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "point_accounts",
+      "owner": "M05",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "balance",
+          "definition": "INT NOT NULL DEFAULT 0"
+        },
+        {
+          "name": "lifetime_earned",
+          "definition": "INT NOT NULL DEFAULT 0"
+        },
+        {
+          "name": "lifetime_spent",
+          "definition": "INT NOT NULL DEFAULT 0"
+        },
+        {
+          "name": "version",
+          "definition": "INT NOT NULL DEFAULT 1"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE point_accounts (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  balance INT NOT NULL DEFAULT 0,\n  lifetime_earned INT NOT NULL DEFAULT 0,\n  lifetime_spent INT NOT NULL DEFAULT 0,\n  version INT NOT NULL DEFAULT 1,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  UNIQUE KEY uq_m05_point_accounts_user (user_id),\n  CONSTRAINT ck_m05_point_accounts_balance CHECK (balance >= 0),\n  CONSTRAINT ck_m05_point_accounts_earned CHECK (lifetime_earned >= 0),\n  CONSTRAINT ck_m05_point_accounts_spent CHECK (lifetime_spent >= 0),\n  CONSTRAINT ck_m05_point_accounts_version CHECK (version >= 1)\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "point_task_definitions",
+      "owner": "M05",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "code",
+          "definition": "VARCHAR(40) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "title",
+          "definition": "VARCHAR(80) NOT NULL"
+        },
+        {
+          "name": "description",
+          "definition": "TEXT NOT NULL"
+        },
+        {
+          "name": "reward_points",
+          "definition": "INT NOT NULL"
+        },
+        {
+          "name": "scope",
+          "definition": "VARCHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "active",
+          "definition": "BOOLEAN NOT NULL DEFAULT TRUE"
+        },
+        {
+          "name": "rule_version",
+          "definition": "INT NOT NULL DEFAULT 1"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE point_task_definitions (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  code VARCHAR(40) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  title VARCHAR(80) NOT NULL,\n  description TEXT NOT NULL,\n  reward_points INT NOT NULL,\n  scope VARCHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  active BOOLEAN NOT NULL DEFAULT TRUE,\n  rule_version INT NOT NULL DEFAULT 1,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  UNIQUE KEY uq_m05_point_task_definitions_code (code),\n  CONSTRAINT ck_m05_point_task_definitions_code CHECK (CHAR_LENGTH(TRIM(code)) BETWEEN 1 AND 40),\n  CONSTRAINT ck_m05_point_task_definitions_points CHECK (reward_points > 0),\n  CONSTRAINT ck_m05_point_task_definitions_scope CHECK (scope IN ('daily', 'daily_course', 'once')),\n  CONSTRAINT ck_m05_point_task_definitions_active CHECK (active IN (0, 1)),\n  CONSTRAINT ck_m05_point_task_definitions_version CHECK (rule_version >= 1)\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "point_task_awards",
+      "owner": "M05",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "task_code",
+          "definition": "VARCHAR(40) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "business_date",
+          "definition": "DATE NOT NULL"
+        },
+        {
+          "name": "scope_key",
+          "definition": "VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT ''"
+        },
+        {
+          "name": "rule_version",
+          "definition": "INT NOT NULL"
+        },
+        {
+          "name": "points",
+          "definition": "INT NOT NULL"
+        },
+        {
+          "name": "source_type",
+          "definition": "VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "source_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE point_task_awards (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  task_code VARCHAR(40) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  business_date DATE NOT NULL,\n  scope_key VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '',\n  rule_version INT NOT NULL,\n  points INT NOT NULL,\n  source_type VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  source_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  UNIQUE KEY uq_m05_point_awards_user_task_day_scope (user_id, task_code, business_date, scope_key),\n  KEY ix_m05_point_awards_task (task_code),\n  KEY ix_m05_point_awards_user_day (user_id, business_date, id),\n  CONSTRAINT ck_m05_point_awards_version CHECK (rule_version >= 1),\n  CONSTRAINT ck_m05_point_awards_points CHECK (points > 0),\n  CONSTRAINT ck_m05_point_awards_source CHECK (CHAR_LENGTH(TRIM(source_type)) BETWEEN 1 AND 32)\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "point_ledger",
+      "owner": "M05",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "delta",
+          "definition": "INT NOT NULL"
+        },
+        {
+          "name": "balance_after",
+          "definition": "INT NOT NULL"
+        },
+        {
+          "name": "reason",
+          "definition": "VARCHAR(160) NOT NULL"
+        },
+        {
+          "name": "business_date",
+          "definition": "DATE NOT NULL"
+        },
+        {
+          "name": "business_type",
+          "definition": "VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "business_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "event_key",
+          "definition": "VARCHAR(200) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "reversal_of",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE point_ledger (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  delta INT NOT NULL,\n  balance_after INT NOT NULL,\n  reason VARCHAR(160) NOT NULL,\n  business_date DATE NOT NULL,\n  business_type VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  business_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  event_key VARCHAR(200) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  reversal_of CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  UNIQUE KEY uq_m05_point_ledger_user_event (user_id, event_key),\n  UNIQUE KEY uq_m05_point_ledger_reversal (reversal_of),\n  UNIQUE KEY uq_m05_point_ledger_user_id (user_id, id),\n  KEY ix_m05_point_ledger_user_reversal (user_id, reversal_of),\n  KEY ix_m05_point_ledger_user_created (user_id, created_at DESC, id DESC),\n  KEY ix_m05_point_ledger_business (business_type, business_id),\n  CONSTRAINT ck_m05_point_ledger_delta CHECK (delta <> 0),\n  CONSTRAINT ck_m05_point_ledger_balance CHECK (balance_after >= 0),\n  CONSTRAINT ck_m05_point_ledger_type CHECK (business_type IN ('task_award', 'redemption', 'redemption_refund', 'adjustment')),\n  CONSTRAINT ck_m05_point_ledger_sign CHECK (\n    (business_type = 'task_award' AND delta > 0)\n    OR (business_type = 'redemption' AND delta < 0)\n    OR (business_type = 'redemption_refund' AND delta > 0)\n    OR business_type = 'adjustment'\n  ),\n  CONSTRAINT ck_m05_point_ledger_event CHECK (CHAR_LENGTH(TRIM(event_key)) BETWEEN 1 AND 200),\n  CONSTRAINT ck_m05_point_ledger_reversal_type CHECK (\n    (reversal_of IS NULL AND business_type <> 'redemption_refund')\n    OR (reversal_of IS NOT NULL AND business_type IN ('redemption_refund', 'adjustment'))\n  ),\n  CONSTRAINT ck_m05_point_ledger_not_self CHECK (reversal_of IS NULL OR reversal_of <> id)\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "point_rewards",
+      "owner": "M05",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "title",
+          "definition": "VARCHAR(100) NOT NULL"
+        },
+        {
+          "name": "description",
+          "definition": "TEXT NOT NULL"
+        },
+        {
+          "name": "image_asset_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "cost_points",
+          "definition": "INT NOT NULL"
+        },
+        {
+          "name": "stock",
+          "definition": "INT NOT NULL DEFAULT 0"
+        },
+        {
+          "name": "daily_limit",
+          "definition": "INT NOT NULL DEFAULT 1"
+        },
+        {
+          "name": "fulfillment_type",
+          "definition": "VARCHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'digital'"
+        },
+        {
+          "name": "status",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'draft'"
+        },
+        {
+          "name": "version",
+          "definition": "INT NOT NULL DEFAULT 1"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE point_rewards (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  title VARCHAR(100) NOT NULL,\n  description TEXT NOT NULL,\n  image_asset_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  cost_points INT NOT NULL,\n  stock INT NOT NULL DEFAULT 0,\n  daily_limit INT NOT NULL DEFAULT 1,\n  fulfillment_type VARCHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'digital',\n  status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'draft',\n  version INT NOT NULL DEFAULT 1,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  KEY ix_m05_point_rewards_status (status, id),\n  KEY ix_m05_point_rewards_asset (image_asset_id),\n  CONSTRAINT ck_m05_point_rewards_cost CHECK (cost_points > 0),\n  CONSTRAINT ck_m05_point_rewards_stock CHECK (stock >= 0),\n  CONSTRAINT ck_m05_point_rewards_limit CHECK (daily_limit >= 1),\n  CONSTRAINT ck_m05_point_rewards_fulfillment CHECK (fulfillment_type = 'digital'),\n  CONSTRAINT ck_m05_point_rewards_status CHECK (status IN ('draft', 'published', 'archived')),\n  CONSTRAINT ck_m05_point_rewards_version CHECK (version >= 1)\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "point_redemptions",
+      "owner": "M05",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "reward_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "reward_title_snapshot",
+          "definition": "VARCHAR(100) NOT NULL"
+        },
+        {
+          "name": "reward_version_snapshot",
+          "definition": "INT NOT NULL"
+        },
+        {
+          "name": "cost_points",
+          "definition": "INT NOT NULL"
+        },
+        {
+          "name": "business_date",
+          "definition": "DATE NOT NULL"
+        },
+        {
+          "name": "status",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'pending'"
+        },
+        {
+          "name": "fulfillment_status",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'pending'"
+        },
+        {
+          "name": "fulfilled_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "redeem_code_ciphertext",
+          "definition": "TEXT NULL"
+        },
+        {
+          "name": "version",
+          "definition": "INT NOT NULL DEFAULT 1"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE point_redemptions (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  reward_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  reward_title_snapshot VARCHAR(100) NOT NULL,\n  reward_version_snapshot INT NOT NULL,\n  cost_points INT NOT NULL,\n  business_date DATE NOT NULL,\n  status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'pending',\n  fulfillment_status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'pending',\n  fulfilled_at DATETIME(3) NULL,\n  redeem_code_ciphertext TEXT NULL,\n  version INT NOT NULL DEFAULT 1,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  KEY ix_m05_point_redemptions_user_created (user_id, created_at DESC, id DESC),\n  KEY ix_m05_point_redemptions_daily_limit (user_id, reward_id, business_date, status),\n  KEY ix_m05_point_redemptions_reward (reward_id),\n  KEY ix_m05_point_redemptions_status (status, created_at, id),\n  CONSTRAINT ck_m05_point_redemptions_cost CHECK (cost_points > 0),\n  CONSTRAINT ck_m05_point_redemptions_reward_version CHECK (reward_version_snapshot >= 1),\n  CONSTRAINT ck_m05_point_redemptions_version CHECK (version >= 1),\n  CONSTRAINT ck_m05_point_redemptions_status CHECK (status IN ('pending', 'fulfilled', 'failed', 'refunded')),\n  CONSTRAINT ck_m05_point_redemptions_fulfillment CHECK (fulfillment_status IN ('pending', 'processing', 'succeeded', 'failed')),\n  CONSTRAINT ck_m05_point_redemptions_state CHECK (\n    (status = 'pending' AND fulfillment_status IN ('pending', 'processing') AND fulfilled_at IS NULL)\n    OR (status = 'fulfilled' AND fulfillment_status = 'succeeded' AND fulfilled_at IS NOT NULL)\n    OR (status IN ('failed', 'refunded') AND fulfillment_status = 'failed' AND fulfilled_at IS NULL)\n  )\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "activities",
+      "owner": "M05",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "organizer_user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "title",
+          "definition": "VARCHAR(100) NOT NULL"
+        },
+        {
+          "name": "category",
+          "definition": "VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "description",
+          "definition": "TEXT NOT NULL"
+        },
+        {
+          "name": "cover_asset_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "location_name",
+          "definition": "VARCHAR(150) NOT NULL"
+        },
+        {
+          "name": "address",
+          "definition": "TEXT NOT NULL"
+        },
+        {
+          "name": "latitude",
+          "definition": "DECIMAL(9,6) NULL"
+        },
+        {
+          "name": "longitude",
+          "definition": "DECIMAL(9,6) NULL"
+        },
+        {
+          "name": "coordinate_system",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'wgs84'"
+        },
+        {
+          "name": "status",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'draft'"
+        },
+        {
+          "name": "visibility",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'public'"
+        },
+        {
+          "name": "version",
+          "definition": "INT NOT NULL DEFAULT 1"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE activities (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  organizer_user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  title VARCHAR(100) NOT NULL,\n  category VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  description TEXT NOT NULL,\n  cover_asset_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  location_name VARCHAR(150) NOT NULL,\n  address TEXT NOT NULL,\n  latitude DECIMAL(9,6) NULL,\n  longitude DECIMAL(9,6) NULL,\n  coordinate_system VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'wgs84',\n  status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'draft',\n  visibility VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'public',\n  version INT NOT NULL DEFAULT 1,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  KEY ix_m05_activities_public_feed (status, visibility, category, created_at DESC, id DESC),\n  KEY ix_m05_activities_organizer (organizer_user_id, created_at DESC, id DESC),\n  KEY ix_m05_activities_cover (cover_asset_id),\n  CONSTRAINT ck_m05_activities_category CHECK (CHAR_LENGTH(TRIM(category)) BETWEEN 1 AND 32),\n  CONSTRAINT ck_m05_activities_coordinates CHECK (\n    (latitude IS NULL AND longitude IS NULL)\n    OR (latitude IS NOT NULL AND longitude IS NOT NULL AND latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180)\n  ),\n  CONSTRAINT ck_m05_activities_coordinate_system CHECK (coordinate_system = 'wgs84'),\n  CONSTRAINT ck_m05_activities_status CHECK (status IN ('draft', 'published', 'archived')),\n  CONSTRAINT ck_m05_activities_visibility CHECK (visibility IN ('public', 'private')),\n  CONSTRAINT ck_m05_activities_version CHECK (version >= 1)\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "activity_slots",
+      "owner": "M05",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "activity_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "start_at",
+          "definition": "DATETIME(3) NOT NULL"
+        },
+        {
+          "name": "end_at",
+          "definition": "DATETIME(3) NOT NULL"
+        },
+        {
+          "name": "timezone",
+          "definition": "VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'Asia/Shanghai'"
+        },
+        {
+          "name": "capacity",
+          "definition": "INT NOT NULL"
+        },
+        {
+          "name": "booked_count",
+          "definition": "INT NOT NULL DEFAULT 0"
+        },
+        {
+          "name": "booking_open_at",
+          "definition": "DATETIME(3) NOT NULL"
+        },
+        {
+          "name": "booking_close_at",
+          "definition": "DATETIME(3) NOT NULL"
+        },
+        {
+          "name": "cancel_before_at",
+          "definition": "DATETIME(3) NOT NULL"
+        },
+        {
+          "name": "status",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'open'"
+        },
+        {
+          "name": "version",
+          "definition": "INT NOT NULL DEFAULT 1"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE activity_slots (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  activity_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  start_at DATETIME(3) NOT NULL,\n  end_at DATETIME(3) NOT NULL,\n  timezone VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'Asia/Shanghai',\n  capacity INT NOT NULL,\n  booked_count INT NOT NULL DEFAULT 0,\n  booking_open_at DATETIME(3) NOT NULL,\n  booking_close_at DATETIME(3) NOT NULL,\n  cancel_before_at DATETIME(3) NOT NULL,\n  status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'open',\n  version INT NOT NULL DEFAULT 1,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  KEY ix_m05_activity_slots_activity_start (activity_id, start_at, id),\n  KEY ix_m05_activity_slots_status_start (status, start_at, id),\n  CONSTRAINT ck_m05_activity_slots_time CHECK (start_at < end_at),\n  CONSTRAINT ck_m05_activity_slots_capacity CHECK (capacity > 0 AND booked_count >= 0 AND booked_count <= capacity),\n  CONSTRAINT ck_m05_activity_slots_booking_window CHECK (booking_open_at < booking_close_at AND booking_close_at <= start_at),\n  CONSTRAINT ck_m05_activity_slots_cancel_window CHECK (cancel_before_at <= start_at),\n  CONSTRAINT ck_m05_activity_slots_timezone CHECK (timezone = 'Asia/Shanghai'),\n  CONSTRAINT ck_m05_activity_slots_status CHECK (status IN ('open', 'canceled', 'completed')),\n  CONSTRAINT ck_m05_activity_slots_version CHECK (version >= 1)\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "activity_bookings",
+      "owner": "M05",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "slot_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "status",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'confirmed'"
+        },
+        {
+          "name": "participant_visibility",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'hidden'"
+        },
+        {
+          "name": "booked_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "canceled_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "cancel_reason",
+          "definition": "VARCHAR(200) NULL"
+        },
+        {
+          "name": "activity_snapshot",
+          "definition": "JSON NOT NULL"
+        },
+        {
+          "name": "slot_snapshot",
+          "definition": "JSON NOT NULL"
+        },
+        {
+          "name": "version",
+          "definition": "INT NOT NULL DEFAULT 1"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE activity_bookings (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  slot_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'confirmed',\n  participant_visibility VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'hidden',\n  booked_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  canceled_at DATETIME(3) NULL,\n  cancel_reason VARCHAR(200) NULL,\n  activity_snapshot JSON NOT NULL,\n  slot_snapshot JSON NOT NULL,\n  version INT NOT NULL DEFAULT 1,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  UNIQUE KEY uq_m05_activity_bookings_user_slot (user_id, slot_id),\n  KEY ix_m05_activity_bookings_user_created (user_id, created_at DESC, id DESC),\n  KEY ix_m05_activity_bookings_slot_status (slot_id, status, id),\n  CONSTRAINT ck_m05_activity_bookings_status CHECK (status IN ('confirmed', 'canceled', 'attended', 'no_show')),\n  CONSTRAINT ck_m05_activity_bookings_visibility CHECK (participant_visibility IN ('hidden', 'public')),\n  CONSTRAINT ck_m05_activity_bookings_cancel_state CHECK (\n    (status = 'canceled' AND canceled_at IS NOT NULL AND canceled_at >= booked_at)\n    OR (status <> 'canceled' AND canceled_at IS NULL AND cancel_reason IS NULL)\n  ),\n  CONSTRAINT ck_m05_activity_bookings_activity_snapshot CHECK (JSON_TYPE(activity_snapshot) = 'OBJECT'),\n  CONSTRAINT ck_m05_activity_bookings_slot_snapshot CHECK (JSON_TYPE(slot_snapshot) = 'OBJECT'),\n  CONSTRAINT ck_m05_activity_bookings_version CHECK (version >= 1)\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "booking_events",
+      "owner": "M05",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "booking_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "actor_user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "action",
+          "definition": "VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "reason",
+          "definition": "TEXT NULL"
+        },
+        {
+          "name": "occurred_at",
+          "definition": "DATETIME(3) NOT NULL"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE booking_events (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  booking_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  actor_user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  action VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  reason TEXT NULL,\n  occurred_at DATETIME(3) NOT NULL,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  KEY ix_m05_booking_events_booking_occurred (booking_id, occurred_at, id),\n  KEY ix_m05_booking_events_actor (actor_user_id),\n  CONSTRAINT ck_m05_booking_events_action CHECK (action IN ('create', 'rebook', 'cancel', 'host_cancel', 'checkin', 'no_show'))\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "community_profiles",
+      "owner": "M05",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "bio",
+          "definition": "VARCHAR(200) NULL"
+        },
+        {
+          "name": "discoverable",
+          "definition": "BOOLEAN NOT NULL DEFAULT FALSE"
+        },
+        {
+          "name": "version",
+          "definition": "INT NOT NULL DEFAULT 1"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE community_profiles (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  bio VARCHAR(200) NULL,\n  discoverable BOOLEAN NOT NULL DEFAULT FALSE,\n  version INT NOT NULL DEFAULT 1,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  UNIQUE KEY uq_m05_community_profiles_user (user_id),\n  CONSTRAINT ck_m05_community_profiles_discoverable CHECK (discoverable IN (0, 1)),\n  CONSTRAINT ck_m05_community_profiles_version CHECK (version >= 1)\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "user_blocks",
+      "owner": "M05",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "blocked_user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE user_blocks (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  blocked_user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  UNIQUE KEY uq_m05_user_blocks_pair (user_id, blocked_user_id),\n  KEY ix_m05_user_blocks_reverse (blocked_user_id, user_id),\n  CONSTRAINT ck_m05_user_blocks_not_self CHECK (user_id <> blocked_user_id)\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "community_reports",
+      "owner": "M05",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "reporter_user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "target_type",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "target_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "reason",
+          "definition": "VARCHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "description",
+          "definition": "VARCHAR(1000) NULL"
+        },
+        {
+          "name": "status",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'pending'"
+        },
+        {
+          "name": "resolved_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "resolved_by",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "resolution",
+          "definition": "VARCHAR(24) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "resolution_note",
+          "definition": "VARCHAR(1000) NULL"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE community_reports (\n  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  reporter_user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  target_type VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  target_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  reason VARCHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n  description VARCHAR(1000) NULL,\n  status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'pending',\n  resolved_at DATETIME(3) NULL,\n  resolved_by CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  resolution VARCHAR(24) CHARACTER SET ascii COLLATE ascii_bin NULL,\n  resolution_note VARCHAR(1000) NULL,\n  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  KEY ix_m05_community_reports_queue (status, created_at, id),\n  KEY ix_m05_community_reports_reporter (reporter_user_id, created_at DESC, id DESC),\n  KEY ix_m05_community_reports_target (target_type, target_id, status),\n  KEY ix_m05_community_reports_resolver (resolved_by),\n  CONSTRAINT ck_m05_community_reports_target CHECK (target_type IN ('activity', 'user')),\n  CONSTRAINT ck_m05_community_reports_reason CHECK (reason IN ('spam', 'harassment', 'misleading', 'other')),\n  CONSTRAINT ck_m05_community_reports_status CHECK (status IN ('pending', 'resolved')),\n  CONSTRAINT ck_m05_community_reports_resolution CHECK (resolution IS NULL OR resolution IN ('dismiss', 'disable_target')),\n  CONSTRAINT ck_m05_community_reports_state CHECK (\n    (status = 'pending' AND resolved_at IS NULL AND resolved_by IS NULL AND resolution IS NULL AND resolution_note IS NULL)\n    OR (status = 'resolved' AND resolved_at IS NOT NULL AND resolved_by IS NOT NULL AND resolution IS NOT NULL AND resolution_note IS NOT NULL AND CHAR_LENGTH(TRIM(resolution_note)) >= 1)\n  )\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "mood_records",
+      "owner": "M06",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "business_date",
+          "definition": "DATE NOT NULL"
+        },
+        {
+          "name": "mood",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "note",
+          "definition": "VARCHAR(500) NULL"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE mood_records (\n    id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    business_date DATE NOT NULL,\n    mood VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    note VARCHAR(500) NULL,\n    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n    PRIMARY KEY (id),\n    UNIQUE KEY uq_mood_records_user_date (user_id, business_date),\n    KEY ix_mood_records_user_recent (user_id, business_date DESC, id DESC),\n    CONSTRAINT ck_mood_records_mood CHECK (mood IN ('happy', 'calm', 'tired', 'low'))\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "companion_sessions",
+      "owner": "M06",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "title",
+          "definition": "VARCHAR(60) NOT NULL DEFAULT '与小养聊聊'"
+        },
+        {
+          "name": "status",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'active'"
+        },
+        {
+          "name": "last_message_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "deleted_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE companion_sessions (\n    id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    title VARCHAR(60) NOT NULL DEFAULT '与小养聊聊',\n    status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'active',\n    last_message_at DATETIME(3) NULL,\n    deleted_at DATETIME(3) NULL,\n    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n    PRIMARY KEY (id),\n    UNIQUE KEY uq_companion_sessions_id_user (id, user_id),\n    KEY ix_companion_sessions_user_visible (user_id, deleted_at, last_message_at DESC, id DESC),\n    CONSTRAINT ck_companion_sessions_title CHECK (CHAR_LENGTH(TRIM(title)) BETWEEN 1 AND 60),\n    CONSTRAINT ck_companion_sessions_status CHECK (status IN ('active', 'archived')),\n    CONSTRAINT ck_companion_sessions_deleted_state CHECK (deleted_at IS NULL OR status = 'archived')\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "companion_messages",
+      "owner": "M06",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "session_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "role",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "content",
+          "definition": "TEXT NOT NULL"
+        },
+        {
+          "name": "status",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "client_message_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "reply_to_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "provider",
+          "definition": "VARCHAR(40) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "model",
+          "definition": "VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "error_code",
+          "definition": "VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "completed_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "run_token",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "lease_until",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "attempts",
+          "definition": "INT NOT NULL DEFAULT 0"
+        },
+        {
+          "name": "client_message_guard",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin"
+        },
+        {
+          "name": "assistant_reply_guard",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin"
+        },
+        {
+          "name": "active_generation_guard",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE companion_messages (\n    id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    session_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    role VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    content TEXT NOT NULL,\n    status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n    client_message_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n    reply_to_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n    provider VARCHAR(40) CHARACTER SET ascii COLLATE ascii_bin NULL,\n    model VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NULL,\n    error_code VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,\n    completed_at DATETIME(3) NULL,\n    run_token CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n    lease_until DATETIME(3) NULL,\n    attempts INT NOT NULL DEFAULT 0,\n    client_message_guard CHAR(36) CHARACTER SET ascii COLLATE ascii_bin\n        GENERATED ALWAYS AS (CASE WHEN role = 'user' THEN client_message_id ELSE NULL END) STORED,\n    assistant_reply_guard CHAR(36) CHARACTER SET ascii COLLATE ascii_bin\n        GENERATED ALWAYS AS (CASE WHEN role = 'assistant' THEN reply_to_id ELSE NULL END) STORED,\n    active_generation_guard CHAR(36) CHARACTER SET ascii COLLATE ascii_bin\n        GENERATED ALWAYS AS (CASE WHEN role = 'assistant' AND status IN ('queued', 'generating') THEN session_id ELSE NULL END) STORED,\n    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n    PRIMARY KEY (id),\n    UNIQUE KEY uq_companion_messages_id_session_user (id, session_id, user_id),\n    UNIQUE KEY uq_companion_messages_client (user_id, client_message_guard),\n    UNIQUE KEY uq_companion_messages_reply (assistant_reply_guard),\n    UNIQUE KEY uq_companion_messages_active_generation (active_generation_guard),\n    KEY ix_companion_messages_session_owner_recent (session_id, user_id, created_at DESC, id DESC),\n    KEY ix_companion_messages_reply_owner (reply_to_id, session_id, user_id),\n    KEY ix_companion_messages_lease (status, lease_until, id),\n    CONSTRAINT ck_companion_messages_role CHECK (role IN ('user', 'assistant')),\n    CONSTRAINT ck_companion_messages_status CHECK (status IN ('queued', 'generating', 'completed', 'failed', 'canceled')),\n    CONSTRAINT ck_companion_messages_attempts CHECK (attempts >= 0),\n    CONSTRAINT ck_companion_messages_provider CHECK (provider IS NULL OR CHAR_LENGTH(TRIM(provider)) >= 1),\n    CONSTRAINT ck_companion_messages_model CHECK (model IS NULL OR CHAR_LENGTH(TRIM(model)) >= 1),\n    CONSTRAINT ck_companion_messages_error_code CHECK (error_code IS NULL OR CHAR_LENGTH(TRIM(error_code)) >= 1),\n    CONSTRAINT ck_companion_messages_not_self_reply CHECK (reply_to_id IS NULL OR reply_to_id <> id),\n    CONSTRAINT ck_companion_messages_role_shape CHECK (\n        (role = 'user' AND status = 'completed' AND client_message_id IS NOT NULL AND reply_to_id IS NULL\n            AND provider IS NULL AND model IS NULL AND run_token IS NULL AND lease_until IS NULL AND attempts = 0\n            AND CHAR_LENGTH(TRIM(content)) BETWEEN 1 AND 2000)\n        OR (role = 'assistant' AND client_message_id IS NULL AND reply_to_id IS NOT NULL)\n    ),\n    CONSTRAINT ck_companion_messages_terminal_time CHECK (\n        (status IN ('queued', 'generating') AND completed_at IS NULL)\n        OR (status IN ('completed', 'failed', 'canceled') AND completed_at IS NOT NULL)\n    ),\n    CONSTRAINT ck_companion_messages_error_shape CHECK (\n        (status = 'failed' AND error_code IS NOT NULL)\n        OR (status <> 'failed' AND error_code IS NULL)\n    ),\n    CONSTRAINT ck_companion_messages_worker_shape CHECK (\n        role = 'user'\n        OR (status = 'queued' AND run_token IS NULL AND lease_until IS NULL AND attempts = 0)\n        OR (status = 'generating' AND run_token IS NOT NULL AND lease_until IS NOT NULL AND attempts >= 1)\n        OR (status IN ('completed', 'failed', 'canceled') AND lease_until IS NULL\n            AND ((attempts = 0 AND run_token IS NULL) OR (attempts >= 1 AND run_token IS NOT NULL)))\n    ),\n    CONSTRAINT ck_companion_messages_completed_attempt CHECK (\n        role <> 'assistant' OR status <> 'completed' OR attempts >= 1\n    ),\n    CONSTRAINT ck_companion_messages_completed_content CHECK (\n        role <> 'assistant' OR status <> 'completed' OR CHAR_LENGTH(TRIM(content)) >= 1\n    )\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "m05_message_campaigns",
+      "owner": "M05",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY"
+        },
+        {
+          "name": "created_by",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "title",
+          "definition": "VARCHAR(100) NOT NULL"
+        },
+        {
+          "name": "body",
+          "definition": "VARCHAR(500) NOT NULL"
+        },
+        {
+          "name": "action_path",
+          "definition": "VARCHAR(200) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '/messages'"
+        },
+        {
+          "name": "recipient_ids",
+          "definition": "JSON NOT NULL"
+        },
+        {
+          "name": "status",
+          "definition": "VARCHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'draft'"
+        },
+        {
+          "name": "version",
+          "definition": "INT NOT NULL DEFAULT 1"
+        },
+        {
+          "name": "sent_at",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE m05_message_campaigns (\n id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,\n created_by CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n title VARCHAR(100) NOT NULL,\n body VARCHAR(500) NOT NULL,\n action_path VARCHAR(200) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '/messages',\n recipient_ids JSON NOT NULL,\n status VARCHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'draft',\n version INT NOT NULL DEFAULT 1,\n sent_at DATETIME(3) NULL,\n created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n CONSTRAINT fk_m05_campaign_actor FOREIGN KEY(created_by) REFERENCES users(id),\n CONSTRAINT ck_m05_campaign_title CHECK(CHAR_LENGTH(TRIM(title)) BETWEEN 1 AND 100),\n CONSTRAINT ck_m05_campaign_body CHECK(CHAR_LENGTH(TRIM(body)) BETWEEN 1 AND 500),\n CONSTRAINT ck_m05_campaign_ids CHECK(JSON_TYPE(recipient_ids)='ARRAY' AND JSON_LENGTH(recipient_ids) BETWEEN 1 AND 100),\n CONSTRAINT ck_m05_campaign_status CHECK(status IN ('draft','queued','sending','completed','partial_failed')),\n CONSTRAINT ck_m05_campaign_version CHECK(version>=1),\n KEY ix_m05_campaign_created(created_at DESC,id DESC)\n) ENGINE=InnoDB;"
+    },
+    {
+      "name": "m05_message_recipients",
+      "owner": "M05",
+      "columns": [
+        {
+          "name": "id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY"
+        },
+        {
+          "name": "campaign_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "user_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL"
+        },
+        {
+          "name": "notification_id",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "status",
+          "definition": "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'pending'"
+        },
+        {
+          "name": "version",
+          "definition": "INT NOT NULL DEFAULT 1"
+        },
+        {
+          "name": "attempts",
+          "definition": "INT NOT NULL DEFAULT 0"
+        },
+        {
+          "name": "last_error_code",
+          "definition": "VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "locked_by",
+          "definition": "CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL"
+        },
+        {
+          "name": "locked_until",
+          "definition": "DATETIME(3) NULL"
+        },
+        {
+          "name": "lease_version",
+          "definition": "BIGINT NOT NULL DEFAULT 0"
+        },
+        {
+          "name": "created_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+        },
+        {
+          "name": "updated_at",
+          "definition": "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+        }
+      ],
+      "ddl": "CREATE TABLE m05_message_recipients (\n id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,\n campaign_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,\n notification_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'pending',\n version INT NOT NULL DEFAULT 1,\n attempts INT NOT NULL DEFAULT 0,\n last_error_code VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NULL,\n locked_by CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,\n locked_until DATETIME(3) NULL,\n lease_version BIGINT NOT NULL DEFAULT 0,\n created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n CONSTRAINT uq_m05_recipient UNIQUE(campaign_id,user_id),\n CONSTRAINT fk_m05_recipient_campaign FOREIGN KEY(campaign_id) REFERENCES m05_message_campaigns(id),\n CONSTRAINT fk_m05_recipient_user FOREIGN KEY(user_id) REFERENCES users(id),\n CONSTRAINT fk_m05_recipient_notice FOREIGN KEY(notification_id,user_id) REFERENCES notifications(id,user_id),\n CONSTRAINT ck_m05_recipient_status CHECK(status IN ('pending','processing','succeeded','failed')),\n CONSTRAINT ck_m05_recipient_version CHECK(version>=1 AND attempts>=0 AND lease_version>=0),\n CONSTRAINT ck_m05_recipient_lease CHECK((status='processing' AND locked_by IS NOT NULL AND locked_until IS NOT NULL) OR (status<>'processing' AND locked_by IS NULL AND locked_until IS NULL)),\n CONSTRAINT ck_m05_recipient_success CHECK(status<>'succeeded' OR notification_id IS NOT NULL),\n KEY ix_m05_recipient_due(status,locked_until,id),\n KEY ix_m05_recipient_page(campaign_id,created_at DESC,id DESC)\n) ENGINE=InnoDB;"
+    }
+  ],
+  "executionEvidence": "../design/phase-06/api-db-checks.json",
+  "schemaVersion": "V002_M05",
+  "incrementalMigration": "V002__m05_messages.sql",
+  "notificationsTypeExtension": "operations_message"
+}
