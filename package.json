@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack --hostname 127.0.0.1 --port 3002",
+    "dev": "next dev --webpack --hostname 127.0.0.1 --port 3003",
     "build": "next build --webpack",
-    "start": "next start --hostname 127.0.0.1 --port 3002",
-    "typecheck": "tsc --noEmit"
+    "start": "next start --hostname 127.0.0.1 --port 3003",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test src/lib/api/uploads.test.cjs"
   },
   "dependencies": {
     "next": "16.4.2",

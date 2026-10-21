@@ -1,85 +1,121 @@
-'use client';
-import {H5Messages,AdminMessages} from './messages';
-import {AdminAssets} from './assets';
-import {useEffect,useState,useRef} from 'react';
-import Link from 'next/link';
-import {usePathname} from 'next/navigation';
-import {api,ApiError} from '../lib/api';
-import {H5Points,AdminPoints} from './points';
-import {H5Activities} from './activities';
-import {AdminActivities} from './admin-activities';
-import {H5Rewards,AdminRewards} from './rewards';
-import design from '../meta/design.json';
-import schema from '../meta/schema-map.json';
-type User={id:string;nickname:string;roles:string[];csrfToken:string;identityMode:string};
-type Contract={contractVersion:string;schemaVersion:string;baselineSha256:string;timezone:string;identityAdapter:string;audience:string};
-type Runtime=Contract&{mysqlVersion:string;businessTableCount:number;activeUserCount:number;activeSessionCount:number;connectionTimezone:string;transactionIsolation:string};
-type Overview={totalAvailablePoints:number;publishedActivities:number;confirmedBookings:number;publishedRewards:number;pendingRedemptions:number;openReports:number;sentCampaigns:number;unreadNotifications:number};
-const h5nav=[['profile','我的','◎'],['points','积分任务','✦'],['rewards','数字权益','◇'],['activities','活动预约','◷'],['community','基础社区','♧'],['messages','消息','▱']];
-const adminnav=[['overview','运营概览','▦'],['activities','活动管理','◷'],['slots','场次与名额','▤'],['bookings','预约与签到','✓'],['points','积分管理','✦'],['rewards','权益管理','◇'],['redemptions','兑换订单','▥'],['reports','社区审核','♧'],['messages','运营消息','▱'],['assets','素材管理','▧'],['engineering','设计与联调','⌘']];
-const integrations:Record<string,{owner:string;title:string}>={health:{owner:'M02',title:'健康记录'},nutrition:{owner:'M03',title:'饮食记录'},training:{owner:'M04',title:'课程训练'}};
-const stageOf:Record<string,number>={points:3,activities:4,slots:4,bookings:4,community:4,blocks:4,reports:4,rewards:5,redemptions:5,messages:6,assets:6};
-const intro:Record<string,string>={points:'每日任务、积分账户与不可变流水',activities:'发现轻运动，与生活中的好状态见面',slots:'配置报名时间、取消窗口与场次名额',bookings:'管理预约记录、到场签到与取消',community:'自主选择公开范围，管理屏蔽与举报',rewards:'用坚持获得的积分，兑换数字权益',redemptions:'跟踪权益发放、核对与退款',messages:'查看个人通知与运营消息',reports:'处理社区举报并保留审核记录',assets:'管理经过校验的活动与权益图片'};
-export function Platform({audience}:{audience:'h5'|'admin'}){
-  const admin=audience==='admin',path=usePathname(),route=path.split('/')[1]||(admin?'overview':'profile');
-  const [user,setUser]=useState<User|null>(null),[contract,setContract]=useState<Contract|null>(null),[runtime,setRuntime]=useState<Runtime|null>(null),[overview,setOverview]=useState<Overview|null>(null);
-  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[loginOpen,setLoginOpen]=useState(false),[menu,setMenu]=useState(false),[devEnabled,setDevEnabled]=useState(false);
-  const requestSequence=useRef(0);
-  const [refreshVersion,setRefreshVersion]=useState(0);
-  const nav=admin?adminnav:h5nav,title=nav.find(n=>n[0]===route)?.[1]||({bookings:'我的预约',redemptions:'我的兑换',blocks:'屏蔽管理'}[route]||integrations[route]?.title||'页面未找到');
-  async function refresh(silent=false){
-    const sequence=++requestSequence.current;if(!silent)setLoading(true);setError('');
-    let me:User|null=null,info:Contract|null=null;
-    try{
-      const status=await api<{developmentIdentityEnabled:boolean}>('/api/status');
-      if(sequence!==requestSequence.current)return;setDevEnabled(status.developmentIdentityEnabled);
-      me=await api<User>('/api/v1/me');info=await api<Contract>('/api/v1/meta/contract');
-      const [state,counts]=admin?await Promise.all([api<Runtime>('/api/v1/admin/runtime'),api<Overview>('/api/v1/admin/overview')]):[null,null];
-      if(sequence!==requestSequence.current)return;setUser(me);setContract(info);setRuntime(state);setOverview(counts);setRefreshVersion(v=>v+1);
-    }catch(e){
-      if(sequence!==requestSequence.current)return;
-      if(e instanceof ApiError&&e.status===401){setUser(null);setContract(null);setRuntime(null);setOverview(null);}
-      else{setUser(me);setContract(info);setRuntime(null);setOverview(null);setError((e as Error).message);}
-    }finally{if(sequence===requestSequence.current)setLoading(false);}
+"use client";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { api, ApiError } from "../lib/api";
+import { AdminPoints } from "./points";
+import { AdminActivities } from "./admin-activities";
+import { AdminRewards } from "./rewards";
+import { AdminMessages } from "./messages";
+import { AdminAssets } from "./assets";
+import type { User } from "./activity-shared";
+
+const navigation = [
+  ["overview", "运营概览"], ["activities", "活动管理"], ["slots", "场次与名额"],
+  ["bookings", "预约与签到"], ["points", "积分管理"], ["rewards", "权益管理"],
+  ["redemptions", "兑换订单"], ["reports", "社区审核"], ["messages", "运营消息"],
+  ["assets", "素材管理"],
+];
+const labels: Record<string, string> = {
+  totalAvailablePoints: "可用积分总量", publishedActivities: "已发布活动",
+  confirmedBookings: "待参加预约", publishedRewards: "已发布权益",
+  pendingRedemptions: "待履约订单", openReports: "待处理举报",
+  sentCampaigns: "已发送消息批次", unreadNotifications: "站内未读通知",
+};
+export function Platform() {
+  const path = usePathname();
+  const route = path.split("/")[1] || "overview";
+  const [user, setUser] = useState<User | null>(null);
+  const [ready, setReady] = useState(false);
+  const [forbidden, setForbidden] = useState(false);
+  const [error, setError] = useState("");
+  const [revision, setRevision] = useState(0);
+  const sequence = useRef(0);
+  async function refresh() {
+    const current = ++sequence.current;
+    setReady(false); setUser(null); setForbidden(false); setError("");
+    try {
+      const session = await api<User>("/api/v1/me/m05-session");
+      if (current !== sequence.current) return;
+      if (!session.roles.includes("admin")) {
+        // Ask the protected endpoint so the displayed denial comes from the server.
+        await api("/api/v1/admin/overview");
+        throw new ApiError(403, "ADMIN_REQUIRED", "当前账号没有管理权限");
+      }
+      setUser(session); setRevision(v => v + 1);
+    } catch (e) {
+      if (current !== sequence.current) return;
+      if (e instanceof ApiError && e.status === 403) setForbidden(true);
+      if (!(e instanceof ApiError && e.status === 401)) setError((e as Error).message);
+    } finally { if (current === sequence.current) setReady(true); }
   }
-  useEffect(()=>{void refresh();const focus=()=>void refresh(true);window.addEventListener('focus',focus);return()=>window.removeEventListener('focus',focus);},[]);
-  async function login(profileKey:string){
-    ++requestSequence.current;setBusy(true);setError('');setNotice('');setUser(null);setContract(null);setRuntime(null);setOverview(null);
-    try{await api('/api/dev/session',{method:'POST',headers:{'Idempotency-Key':crypto.randomUUID()},body:JSON.stringify({profileKey})});setLoginOpen(false);await refresh();setNotice('已切换测试身份，当前账号来自服务端会话。');}
-    catch(e){setError((e as Error).message);}finally{setBusy(false);}
+  useEffect(() => {
+    void refresh();
+    const expired = () => { ++sequence.current; setUser(null); setReady(true); };
+    const focus = () => void refresh();
+    window.addEventListener("auth-expired", expired);
+    window.addEventListener("focus", focus);
+    return () => { ++sequence.current; window.removeEventListener("auth-expired", expired); window.removeEventListener("focus", focus); };
+  }, []);
+  async function logout() {
+    try { await api("/api/v1/auth/logout", { method: "POST", body: "{}" }); await refresh(); }
+    catch (e) { setError((e as Error).message); }
   }
-  async function logout(){
-    if(!user)return;++requestSequence.current;setBusy(true);setError('');
-    try{await api('/api/dev/session',{method:'DELETE',headers:{'X-CSRF-Token':user.csrfToken}});++requestSequence.current;setLoading(false);setUser(null);setRuntime(null);setOverview(null);setContract(null);setNotice('会话已撤销。');}
-    catch(e){setError((e as Error).message);}finally{setBusy(false);}
-  }
-  const allowed=Boolean(user&&(!admin||user.roles.includes('admin')));
-  return <div className={`platform ${admin?'admin':'h5'}`}>
-    <aside className={`sidebar ${menu?'open':''}`}>
-      <Link className="brand" href={admin?'/overview':'/profile'}><span className="brand-mark">✦</span><span>轻养<span className="brand-en">QINGYANG {admin?'STUDIO':'HEALTH'}</span></span></Link>
-      <div className="nav-label">{admin?'运营工作台':'让健康成为日常'}</div>
-      <nav>{nav.map(([key,label,icon])=><Link key={key} href={'/'+key} onClick={()=>setMenu(false)} className={route===key?'active':''} aria-current={route===key?'page':undefined}><span>{icon}</span>{label}</Link>)}</nav>
-      <div className="sidebar-note"><span className="live-dot"/> M05 独立开发环境<p>第⑦阶段 · 独立验收与交付</p><small>业务功能按阶段接入</small></div>
+  const title = navigation.find(([key]) => key === route)?.[1] || "页面未找到";
+  return <div className="platform admin">
+    <aside className="sidebar"><Link className="brand" href="/overview">轻养 · 运营后台</Link>
+      <nav>{navigation.map(([key, label]) => <Link key={key} href={"/" + key} className={route === key ? "active" : ""}>{label}</Link>)}</nav>
     </aside>
-    <div className="workspace"><header><div className="breadcrumb"><button className="menu-button" onClick={()=>setMenu(!menu)} aria-label="切换菜单">☰</button><span>{admin?'轻养 / 运营后台':'轻养 / 健康生活'}</span><b>{title}</b></div><div className="header-actions"><span className="environment">本地开发</span>{user&&<span className="header-name">{user.nickname}</span>}<button className="avatar-button" onClick={()=>setLoginOpen(true)} aria-label="切换测试身份">{user?user.nickname[0]:'登'}</button></div></header>
-    <main><div className="page-heading"><div><p className="eyebrow">{admin?'QINGYANG · OPERATIONS':'A LITTLE BETTER, EVERY DAY'}</p><h1>{title}</h1><p className="subtitle">{route==='profile'?'照顾自己，从每一个微小的日常开始。':route==='overview'?'让每一份健康内容，都有清晰的运营秩序。':route==='engineering'?'查看真实运行状态、接口计划与公共依赖。':intro[route]||'独立运行基础'}</p></div><button className="button secondary" onClick={()=>void refresh()} disabled={busy||loading}>刷新连接</button></div>
-    <div className="phase-banner"><span>⑦</span><div><b>独立验收与整合交付</b><p>全链路、故障恢复与重启验证 · 接口和数据库交接清单。</p></div></div>
-    {error&&<div role="alert" className="alert">{error}</div>}{notice&&<p role="status" className="notice">{notice}</p>}
-    {loading?<section className="card empty"><div className="empty-icon">◌</div><h2>正在读取会话与数据库状态</h2></section>:!user&&!admin&&route==='rewards'?<H5Rewards user={null} path={path} refreshVersion={refreshVersion} login={()=>setLoginOpen(true)}/>:!user&&!admin&&route==='activities'?<H5Activities user={null} path={path} refreshVersion={refreshVersion} login={()=>setLoginOpen(true)}/>:!user?<section className="card login-card"><div className="welcome-art">✦<span>◎</span></div><p className="eyebrow">WELCOME TO QINGYANG</p><h2>{admin?'进入轻养运营工作台':'你好，今天也要好好照顾自己'}</h2><p>选择开发身份，开始检查独立运行环境。账号与会话保存在同一个 MySQL 数据库。</p>{devEnabled?<IdentityOptions admin={admin} busy={busy} login={login}/>:<p>正式身份入口等待 M01 接入。</p>}<small>A / B 为普通用户；管理员负责运营内容。测试身份仅在本地开发模式启用。</small></section>:!allowed?<section className="card empty"><div className="empty-icon">⊘</div><h2>当前身份没有后台权限</h2><p>服务端已返回 403 ADMIN_REQUIRED。请切换管理员继续检查。</p><button className="button" onClick={()=>setLoginOpen(true)}>切换管理员身份</button></section>:<>
-    {route==='profile'?<><section className="profile-hero"><div className="user-avatar">{user.nickname[0]}</div><div><p className="eyebrow">很高兴见到你</p><h2>{user.nickname}</h2><p>每一个小行动，都在靠近更好的自己。</p><span className="pill">服务端会话已连接</span></div><span className="hero-decoration">✦</span></section><div className="two-columns"><H5Points refreshVersion={refreshVersion} user={user} compact key={user.id}/><section className="card"><h2>我的健康日常</h2><div className="quick-grid">{[['bookings','我的预约','◷'],['redemptions','我的兑换','◇'],['community','社区资料','♧'],['messages','消息通知','▱']].map(([key,label,icon])=><Link href={'/'+key} key={key}><span>{icon}</span>{label}</Link>)}</div></section></div><Connection user={user} contract={contract}/><section className="card"><h2>账号与公共组件</h2><p className="muted-text">当前显示 M01 兼容账号摘要；健康档案由 M02、餐厅收藏由 M03 提供组件，整合时替换对应插槽。</p><div className="public-slots"><div><span className="pill muted">M02 · 健康档案</span><p>公共组件待整合，当前无健康档案数据。</p></div><div><span className="pill muted">M03 · 餐厅收藏</span><p>公共组件待整合，当前无餐厅收藏数据。</p></div></div><button className="button secondary" onClick={()=>void logout()} disabled={busy}>退出当前身份</button></section></>:route==='overview'?<><section className="section-title"><h2>M05 业务概览</h2><span className="pill success">真实 MySQL 快照</span></section><div className="stat-grid">{[['可用积分总量',overview?.totalAvailablePoints,'全部测试账号'],['已发布活动',overview?.publishedActivities,'H5 可见'],['待参加预约',overview?.confirmedBookings,'已确认'],['已发布权益',overview?.publishedRewards,'H5 可兑换'],['待履约订单',overview?.pendingRedemptions,'需查询供应商结果'],['待处理举报',overview?.openReports,'社区审核'],['已发送消息批次',overview?.sentCampaigns,'包含处理中和已完成'],['站内未读通知',overview?.unreadNotifications,'各用户合计']].map(([label,value,caption])=><section key={String(label)} className="card stat"><p>{label}</p><strong>{value??'—'}</strong><small>{caption}</small></section>)}</div><div className="stat-grid">{[['数据库业务表',runtime?.businessTableCount,'V001 + M05 独立增量'],['开发账号',runtime?.activeUserCount,'A / B / 管理员'],['有效会话',runtime?.activeSessionCount,'数据库实时统计'],['当前阶段','07','独立验收与整合交付']].map(([label,value,caption])=><section key={String(label)} className="card stat"><p>{label}</p><strong>{value??'—'}</strong><small>{caption}</small></section>)}</div><section className="admin-hero"><div><p className="eyebrow">FOUNDATION IS CONNECTED</p><h2>从这里开始运营轻养</h2><p>积分、预约、权益、站内通知和素材共用同一个数据库，后台发布后 H5 可读取最新内容。</p><Link href="/engineering" className="button">查看运行与验收</Link></div><span>✦</span></section><RuntimeCard runtime={runtime}/><Stages/></>:route==='engineering'?<Engineering runtime={runtime}/>:route==='messages'?(admin?<AdminMessages user={user} path={path} refreshVersion={refreshVersion} key={user.id}/>:<H5Messages user={user} refreshVersion={refreshVersion} key={user.id}/>):route==='assets'&&admin?<AdminAssets user={user} key={user.id}/>:route==='points'?(admin?<AdminPoints refreshVersion={refreshVersion} user={user} key={user.id}/>:<H5Points refreshVersion={refreshVersion} user={user} key={user.id}/>):['rewards','redemptions'].includes(route)?(admin?<AdminRewards user={user} path={path} refreshVersion={refreshVersion} key={user.id+route}/>:<H5Rewards user={user} path={path} refreshVersion={refreshVersion} login={()=>setLoginOpen(true)} key={user.id+route}/>):(!admin&&['activities','bookings','community','blocks'].includes(route))?<H5Activities user={user} path={path} refreshVersion={refreshVersion} login={()=>setLoginOpen(true)} key={user.id+route}/>:admin&&['activities','slots','bookings','reports'].includes(route)?<AdminActivities user={user} route={route} refreshVersion={refreshVersion} key={user.id+route}/>:!admin&&integrations[route]?<section className="card empty"><span className="pill">{integrations[route].owner} 公共页面插槽</span><h2>{integrations[route].title}</h2><p>此入口将在系统整合时连接 {integrations[route].owner} 的正式页面。当前 M05 独立环境可通过积分页的开发测试工具生成真实来源并验证奖励。</p><Link href="/points#source-tools" className="button secondary">返回积分任务</Link></section>:stageOf[route]?<section className="card empty"><div className="empty-icon">{nav.find(n=>n[0]===route)?.[2]||'◷'}</div><span className="pill">第{stageOf[route]}阶段</span><h2>{title}等待业务接入</h2><p>{intro[route]}</p><p>当前会话与数据库已经连接。该业务尚未开放写入，设计原型可继续查看。</p><div className="mapped"><b>已确认的接口设计</b>{design.endpoints.filter(e=>e.phase===stageOf[route] && (admin?e.auth==='admin':e.auth!=='admin')).slice(0,5).map(e=><code key={e.id}>{e.method} {e.path}</code>)}</div><Link href={admin?'/overview':'/profile'} className="button secondary">返回{admin?'概览':'我的'}</Link></section>:<section className="card empty"><h2>页面未找到</h2><Link href={admin?'/overview':'/profile'}>返回首页</Link></section>}
-    </>}
-    <footer>轻养 M05 · QY-MYSQL-1.0.0 <span>独立开发 / 第⑦阶段</span></footer></main></div>
-    {!admin&&<nav className="mobile-nav">{h5nav.filter(n=>['profile','points','activities','messages'].includes(n[0])).map(([key,label,icon])=><Link key={key} href={'/'+key} className={route===key?'active':''}><span>{icon}</span>{label}</Link>)}</nav>}
-    {loginOpen&&<div className="modal-backdrop" onClick={()=>setLoginOpen(false)}><section className="modal card" role="dialog" aria-modal="true" aria-label="测试身份" onClick={e=>e.stopPropagation()}><button className="close-button" onClick={()=>setLoginOpen(false)} aria-label="关闭">×</button><h2>切换测试身份</h2><p>服务端签发会话；切换后撤销当前会话并清除页面中的账号数据。</p>{devEnabled?<IdentityOptions admin={admin} busy={busy} login={login}/>:<p>开发身份入口已关闭。</p>}{user&&<button className="button secondary full" disabled={busy} onClick={()=>{setLoginOpen(false);void logout();}}>退出当前身份</button>}</section></div>}
+    <div className="workspace"><header><b>{title}</b><div className="header-actions">
+      {user && <><span>{user.nickname}</span><button className="button secondary" onClick={() => void logout()}>退出登录</button></>}
+      <button className="button secondary" onClick={() => void refresh()}>刷新</button>
+    </div></header><main>
+      {error && <p role="alert" className="alert">{error}</p>}
+      {!ready ? <p role="status">正在恢复会话…</p> : forbidden ? <section className="card"><h1>403 · 无管理权限</h1><p>此账号没有后台权限，请联系项目管理员。</p><button className="button secondary" onClick={() => void logout()}>退出登录</button></section> : !user ? <EmailLogin done={refresh} /> : <div key={user.id + revision}>
+        {route === "overview" ? <Overview /> : route === "points" ? <AdminPoints user={user} refreshVersion={revision} /> : ["activities", "slots", "bookings", "reports"].includes(route) ? <AdminActivities user={user} route={route} refreshVersion={revision} /> : ["rewards", "redemptions"].includes(route) ? <AdminRewards user={user} path={path} refreshVersion={revision} /> : route === "messages" ? <AdminMessages user={user} path={path} refreshVersion={revision} /> : route === "assets" ? <AdminAssets user={user} /> : <h1>页面未找到</h1>}
+      </div>}
+    </main></div>
   </div>;
 }
-function IdentityOptions({admin,busy,login}:{admin:boolean;busy:boolean;login:(key:string)=>void}){return <div className="identity-options">{(admin?[['admin','管理员','运营内容与后台检查'],['user_a','普通用户 A','验证后台拒绝普通用户'],['user_b','普通用户 B','验证后台权限一致性']]:[['user_a','林小满 · 用户 A','独立账号与会话'],['user_b','陈知夏 · 用户 B','测试双用户隔离']]).map(([key,name,hint])=><button key={key} className="identity-option" disabled={busy} onClick={()=>login(key)}><span>{key==='admin'?'管':key==='user_a'?'A':'B'}</span><div><b>{name}</b><small>{hint}</small></div><em>→</em></button>)}</div>;}
-function Connection({user,contract}:{user:User;contract:Contract|null}){return <section className="card"><div className="section-title"><h2>我的连接状态</h2><span className="pill success">MySQL 已连接</span></div><dl className="detail-list"><dt>当前账号</dt><dd>{user.nickname}</dd><dt>用户 ID</dt><dd className="mono">{user.id}</dd><dt>角色</dt><dd>{user.roles.join(' / ')}</dd><dt>实际数据库版本</dt><dd>{contract?.schemaVersion||'—'}</dd><dt>身份提供方</dt><dd>M01 兼容开发适配器</dd><dt>业务时区</dt><dd>{contract?.timezone}</dd></dl></section>;}
-function RuntimeCard({runtime}:{runtime:Runtime|null}){return <section className="card"><div className="section-title"><h2>真实运行状态</h2><span className="pill success">已连接</span></div><dl className="detail-list"><dt>MySQL</dt><dd>{runtime?.mysqlVersion}</dd><dt>业务表 / 迁移记录表</dt><dd>{runtime?.businessTableCount} / 1</dd><dt>迁移版本</dt><dd>{runtime?.schemaVersion}</dd><dt>连接时区 / 业务时区</dt><dd>{runtime?.connectionTimezone} / Asia/Shanghai</dd><dt>写事务隔离级别</dt><dd>{runtime?.transactionIsolation}</dd><dt>基线 SHA-256</dt><dd className="mono wrap">{runtime?.baselineSha256}</dd></dl></section>;}
-function Stages(){return <section className="card"><h2>开发阶段与人工验收</h2><div className="stage-list">{design.phases.map(p=><div key={p.id}><span className={p.id===design.phase_gate.active_phase?'stage-number current':'stage-number'}>{p.id<design.phase_gate.active_phase?'✓':p.id}</span><div><b>{p.title}</b><p>{p.deliverable}</p></div><span className="pill muted">{p.status}</span></div>)}</div></section>;}
-function Engineering({runtime}:{runtime:Runtime|null}){
- const [tab,setTab]=useState('运行基础');const [search,setSearch]=useState('');
- const tables=(schema as unknown as {tables:Array<{name:string;owner:string;columns:Array<{name:string;definition:string}>}>}).tables;
- return <><div className="tabs" role="tablist">{['运行基础','全部接口','数据库映射','公共依赖','阶段与验收'].map(t=><button key={t} role="tab" aria-selected={tab===t} className={tab===t?'selected':''} onClick={()=>setTab(t)}>{t}</button>)}</div>
- {tab==='运行基础'?<><RuntimeCard runtime={runtime}/><section className="card"><h2>本阶段可检查内容</h2><p>本阶段检查：从积分到预约、兑换与通知的全链路；服务重启和故障恢复；整合接口、表结构及独立运行交接。</p><p>前序功能继续可用；运营概览读取真实业务统计。M05 只使用站内消息，短信不纳入范围。</p></section></>:tab==='全部接口'?<section className="card"><div className="section-title"><h2>接口设计与实施状态 · {design.endpoints.length}</h2><span className="pill">本阶段基础接口已接入</span></div><label className="search-label">搜索接口<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="路径或接口名称"/></label><div className="table-scroll"><table><thead><tr><th>方法 / 路径</th><th>说明</th><th>归属 / 阶段</th><th>状态</th></tr></thead><tbody>{design.endpoints.filter(e=>(e.path+e.title).toLowerCase().includes(search.toLowerCase())).map(e=><tr key={e.id}><td><code>{e.method} {e.path}</code></td><td><details><summary>{e.title}</summary><p>输入：{e.input}</p><p>输出：{e.output}</p><p>权限：{e.auth}</p></details></td><td>{e.kind} / {e.phase}</td><td><span className={`pill ${e.phase<=7?'success':'muted'}`}>{e.phase<=7?'已实现':'待阶段接入'}</span></td></tr>)}</tbody></table></div></section>:tab==='数据库映射'?<section className="card"><h2>V001 44 表 + M05 消息扩展 2 表</h2><p>V001 原样保留；V002_M05 新增运营消息批次和接收人，并扩展公共通知类型。实际为 46 张业务表，另有迁移记录表。</p><div className="table-scroll"><table><thead><tr><th>表名</th><th>负责人</th><th>字段数</th></tr></thead><tbody>{tables?.map(t=><tr key={t.name}><td><code>{t.name}</code></td><td>{t.owner}</td><td><details><summary>{t.columns?.length} 个字段</summary>{t.columns?.map(c=><p key={c.name}><code>{c.name}</code> · {c.definition}</p>)}</details></td></tr>)}</tbody></table></div></section>:tab==='公共依赖'?<div className="dependency-list">{design.dependencies.map(d=><section className="card" key={d.name}><span className="pill">{d.owner}</span><h2>{d.name}</h2><p>{d.standalone}</p><p className="muted-text">整合：{d.integration}</p><small>身份、事务、幂等、Outbox、站内通知与本地素材适配已接入；真实外部服务按整合契约替换。</small></section>)}</div>:<Stages/>}</>;
+function EmailLogin({ done }: { done: () => Promise<void> }) {
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [challenge, setChallenge] = useState("");
+  const [until, setUntil] = useState(0);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const attempt = useRef({ signature: "", key: "" });
+  const device = useRef("");
+  async function send() {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await api<{ challengeId: string; resendAfterSeconds: number }>("/api/v1/auth/email-codes", { method: "POST", body: JSON.stringify({ email: email.trim(), purpose: "login" }) });
+      setChallenge(result.challengeId); setCode(""); setUntil(Date.now() + result.resendAfterSeconds * 1000); setNotice("验证码已发送，请查看邮箱。");
+    } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+  }
+  async function login(event: FormEvent) {
+    event.preventDefault(); setBusy(true); setError("");
+    try {
+      device.current ||= crypto.randomUUID();
+      const body = JSON.stringify({ challengeId: challenge, code, deviceId: device.current, platform: "h5" });
+      if (attempt.current.signature !== body) attempt.current = { signature: body, key: crypto.randomUUID() };
+      await api("/api/v1/auth/login", { method: "POST", body, headers: { "Idempotency-Key": attempt.current.key } });
+      await done();
+    } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+  }
+  return <section className="card login-card"><h1>登录运营后台</h1><p>使用已获授权的邮箱账号登录。</p><form onSubmit={login}>
+    <label className="field">邮箱<input type="email" required value={email} onChange={e => { setEmail(e.target.value); setChallenge(""); }} /></label>
+    <button type="button" className="button secondary" disabled={busy || !email || now < until} onClick={() => void send()}>发送验证码（请间隔一分钟重试）</button>
+    <label className="field">验证码<input required inputMode="numeric" value={code} onChange={e => setCode(e.target.value)} /></label>
+    <button className="button" disabled={busy || !challenge || !code}>登录</button>
+  </form>{error && <p role="alert" className="alert">{error}</p>}{notice && <p role="status">{notice}</p>}</section>;
+}
+function Overview() {
+  const [counts, setCounts] = useState<Record<string, number> | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => { let active = true; Promise.all([api<Record<string, number>>("/api/v1/admin/overview"), api("/api/v1/admin/overview/runtime")]).then(([data]) => { if (active) setCounts(data); }).catch(e => { if (active) setError(e.message); }); return () => { active = false; }; }, []);
+  return <><h1>运营概览</h1>{error && <p role="alert" className="alert">{error}</p>}<div className="stat-grid">{Object.entries(labels).map(([key, label]) => <section className="card stat" key={key}><p>{label}</p><strong>{counts?.[key] ?? "—"}</strong></section>)}</div></>;
 }
