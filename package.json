@@ -7,7 +7,9 @@
     "build": "next build --webpack",
     "start": "next start --hostname 127.0.0.1 --port 3003",
     "typecheck": "tsc --noEmit",
-    "test": "node --test src/lib/api/uploads.test.cjs"
+    "test": "node --test src/lib/api/*.test.cjs",
+    "test:e2e": "playwright test",
+    "test:e2e:live": "playwright test --config playwright.live.config.ts"
   },
   "dependencies": {
     "next": "16.4.2",
@@ -15,10 +17,11 @@
     "react-dom": "19.3.1"
   },
   "devDependencies": {
-    "typescript": "5.9.3",
+    "@playwright/test": "1.64.1",
     "@types/node": "24.0.0",
     "@types/react": "19.2.0",
-    "@types/react-dom": "19.2.0"
+    "@types/react-dom": "19.2.0",
+    "typescript": "5.9.3"
   },
   "engines": {
     "node": ">=22.12.0"

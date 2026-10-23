@@ -31,28 +31,38 @@ export function Platform() {
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   const sequence = useRef(0);
-  async function refresh() {
+  async function refresh(background = false) {
     const current = ++sequence.current;
-    setReady(false); setUser(null); setForbidden(false); setError("");
+    if (!background) { setReady(false); setUser(null); }
+    setForbidden(false); setError("");
     try {
       const session = await api<User>("/api/v1/me/m05-session");
       if (current !== sequence.current) return;
       if (!session.roles.includes("admin")) {
+        // The authenticated session is already authoritative about role loss.
+        // Clear old privileged UI even if the follow-up endpoint is unavailable.
+        setUser(null); setForbidden(true);
         // Ask the protected endpoint so the displayed denial comes from the server.
         await api("/api/v1/admin/overview");
         throw new ApiError(403, "ADMIN_REQUIRED", "当前账号没有管理权限");
       }
-      setUser(session); setRevision(v => v + 1);
+      setUser(session);
+      if (!background) setRevision(v => v + 1);
     } catch (e) {
       if (current !== sequence.current) return;
+      if (e instanceof ApiError && [401, 403].includes(e.status)) setUser(null);
       if (e instanceof ApiError && e.status === 403) setForbidden(true);
       if (!(e instanceof ApiError && e.status === 401)) setError((e as Error).message);
     } finally { if (current === sequence.current) setReady(true); }
   }
   useEffect(() => {
     void refresh();
-    const expired = () => { ++sequence.current; setUser(null); setReady(true); };
-    const focus = () => void refresh();
+    const expired = () => {
+      ++sequence.current; setUser(null); setForbidden(false); setError(""); setReady(true);
+    };
+    // A file chooser or another application can return focus while an editor is open.
+    // Revalidate identity without discarding the same user's in-progress form.
+    const focus = () => void refresh(true);
     window.addEventListener("auth-expired", expired);
     window.addEventListener("focus", focus);
     return () => { ++sequence.current; window.removeEventListener("auth-expired", expired); window.removeEventListener("focus", focus); };
@@ -71,7 +81,7 @@ export function Platform() {
       <button className="button secondary" onClick={() => void refresh()}>刷新</button>
     </div></header><main>
       {error && <p role="alert" className="alert">{error}</p>}
-      {!ready ? <p role="status">正在恢复会话…</p> : forbidden ? <section className="card"><h1>403 · 无管理权限</h1><p>此账号没有后台权限，请联系项目管理员。</p><button className="button secondary" onClick={() => void logout()}>退出登录</button></section> : !user ? <EmailLogin done={refresh} /> : <div key={user.id + revision}>
+      {!ready ? <p role="status">正在恢复会话…</p> : forbidden ? <section className="card"><h1>403 · 无管理权限</h1><p>此账号没有后台权限，请联系项目管理员。</p><button className="button secondary" onClick={() => void logout()}>退出登录</button></section> : !user ? <EmailLogin done={() => refresh()} /> : <div key={user.id + revision}>
         {route === "overview" ? <Overview /> : route === "points" ? <AdminPoints user={user} refreshVersion={revision} /> : ["activities", "slots", "bookings", "reports"].includes(route) ? <AdminActivities user={user} route={route} refreshVersion={revision} /> : ["rewards", "redemptions"].includes(route) ? <AdminRewards user={user} path={path} refreshVersion={revision} /> : route === "messages" ? <AdminMessages user={user} path={path} refreshVersion={revision} /> : route === "assets" ? <AdminAssets user={user} /> : <h1>页面未找到</h1>}
       </div>}
     </main></div>
@@ -116,6 +126,6 @@ function EmailLogin({ done }: { done: () => Promise<void> }) {
 function Overview() {
   const [counts, setCounts] = useState<Record<string, number> | null>(null);
   const [error, setError] = useState("");
-  useEffect(() => { let active = true; Promise.all([api<Record<string, number>>("/api/v1/admin/overview"), api("/api/v1/admin/overview/runtime")]).then(([data]) => { if (active) setCounts(data); }).catch(e => { if (active) setError(e.message); }); return () => { active = false; }; }, []);
+  useEffect(() => { let active = true; Promise.all([api<Record<string, number>>("/api/v1/admin/overview"), api("/api/v1/admin/runtime")]).then(([data]) => { if (active) setCounts(data); }).catch(e => { if (active) setError(e.message); }); return () => { active = false; }; }, []);
   return <><h1>运营概览</h1>{error && <p role="alert" className="alert">{error}</p>}<div className="stat-grid">{Object.entries(labels).map(([key, label]) => <section className="card stat" key={key}><p>{label}</p><strong>{counts?.[key] ?? "—"}</strong></section>)}</div></>;
 }

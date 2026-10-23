@@ -97,13 +97,13 @@ export async function api<T>(
   const method = options.method ?? "GET";
   if (method !== "GET" && !options.idempotencyKey)
     options = { ...options, idempotencyKey: crypto.randomUUID() };
-  const headers: Record<string, string> = Object.fromEntries(new Headers(options.headers));
-  headers["X-Client-Platform"] = "h5";
+  const headers = new Headers(options.headers);
+  headers.set("X-Client-Platform", "h5");
   if (options.idempotencyKey)
-    headers["Idempotency-Key"] = options.idempotencyKey;
-  if (options.body !== undefined) headers["Content-Type"] = "application/json";
+    headers.set("Idempotency-Key", options.idempotencyKey);
+  if (options.body !== undefined) headers.set("Content-Type", "application/json");
   if (method !== "GET" && options.csrf !== false)
-    headers["X-CSRF-Token"] = await csrfToken();
+    headers.set("X-CSRF-Token", await csrfToken());
   const res = await fetch("/api/v1" + path, {
     method,
     signal: options.signal,

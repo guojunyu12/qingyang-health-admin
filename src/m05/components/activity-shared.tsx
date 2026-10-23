@@ -14,7 +14,68 @@ export const utc=(s:string)=>new Date(s+':00+08:00').toISOString();
 export const params=(data:Record<string,string>)=>new URLSearchParams(Object.entries(data).filter(([,v])=>v)).toString();
 export function useRead<T>(path:string|null,revision=0){const [data,setData]=useState<T|null>(null),[error,setError]=useState(''),[loading,setLoading]=useState(false);useEffect(()=>{let live=true;setError('');if(!path){setData(null);return;}setLoading(true);api<T>(path).then(d=>{if(live)setData(d);}).catch(e=>{if(live){setError(e.message);setData(null);}}).finally(()=>{if(live)setLoading(false);});return()=>{live=false;};},[path,revision]);return {data,error,loading};}
 export function usePages<T>(path:string,revision=0){const [data,setData]=useState<{items:T[];nextCursor:string|null}>({items:[],nextCursor:null}),[error,setError]=useState(''),[loading,setLoading]=useState(false),seq=useRef(0);async function load(cursor?:string){const n=++seq.current;setLoading(true);setError('');try{const r=await api<typeof data>(path+(path.includes('?')?'&':'?')+'limit=12'+(cursor?'&cursor='+encodeURIComponent(cursor):''));if(n===seq.current)setData(old=>({...r,items:cursor?[...old.items,...r.items]:r.items}));}catch(e){if(n===seq.current)setError((e as Error).message);}finally{if(n===seq.current)setLoading(false);}}useEffect(()=>{setData({items:[],nextCursor:null});void load();return()=>{seq.current++;};},[path,revision]);return {...data,error,loading,more:()=>load(data.nextCursor!)};}
-export function useAction(user:User|null){const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[errorCode,setErrorCode]=useState(''),[revision,setRevision]=useState(0),pending=useRef<{signature:string;key:string}|null>(null),running=useRef(false);async function run<T>(path:string,method:string,body:object,message:string,onSuccess?:(result:T)=>void){if(running.current)return;if(!user){setError('请先选择登录身份');return;}running.current=true;setBusy(true);setError('');setErrorCode('');setNotice('');const signature=JSON.stringify({path,method,body});if(pending.current?.signature!==signature)pending.current={signature,key:crypto.randomUUID()};try{const r=await api<T>(path,{method,body:JSON.stringify(body),headers:{'X-CSRF-Token':user.csrfToken,'Idempotency-Key':pending.current.key}});pending.current=null;setNotice(message);setRevision(v=>v+1);onSuccess?.(r);return r;}catch(e){if(e instanceof ApiError&&e.status<500&&e.code!=='REQUEST_IN_PROGRESS')pending.current=null;setError((e as Error).message);setErrorCode(e instanceof ApiError?e.code:'NETWORK_ERROR');}finally{setBusy(false);running.current=false;}}return {busy,error,errorCode,notice,revision,run};}
+export function useAction(user: User | null) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [errorCode, setErrorCode] = useState("");
+  const [revision, setRevision] = useState(0);
+  const pending = useRef<{ signature: string; key: string } | null>(null);
+  const running = useRef(false);
+  const generation = useRef(0);
+  useEffect(() => {
+    generation.current++;
+    return () => { generation.current++; };
+  }, [user?.id]);
+  async function run<T>(
+    path: string, method: string, body: object, message: string,
+    onSuccess?: (result: T) => void,
+  ) {
+    if (running.current) return;
+    if (!user) { setError("请先登录"); return; }
+    const current = generation.current;
+    running.current = true;
+    setBusy(true); setError(""); setErrorCode(""); setNotice("");
+    const signature = JSON.stringify({ path, method, body });
+    if (pending.current?.signature !== signature) {
+      pending.current = { signature, key: crypto.randomUUID() };
+    }
+    try {
+      const result = await api<T>(path, {
+        method, body: JSON.stringify(body),
+        headers: { "X-CSRF-Token": user.csrfToken, "Idempotency-Key": pending.current.key },
+      });
+      if (current !== generation.current) return;
+      pending.current = null;
+      setNotice(message); setRevision(value => value + 1);
+      onSuccess?.(result);
+      return result;
+    } catch (cause) {
+      if (current !== generation.current) return;
+      if (cause instanceof ApiError && cause.status < 500 && cause.code !== "REQUEST_IN_PROGRESS") {
+        pending.current = null;
+      }
+      setError((cause as Error).message);
+      setErrorCode(cause instanceof ApiError ? cause.code : "NETWORK_ERROR");
+      if (cause instanceof ApiError && cause.code === "VERSION_CONFLICT") {
+        setRevision(value => value + 1);
+      }
+    } finally {
+      running.current = false;
+      if (current === generation.current) setBusy(false);
+    }
+  }
+  return { busy, error, errorCode, notice, revision, run };
+}
+export function ConflictRecovery({ code, reload }: { code: string; reload: () => void }) {
+  if (code !== "VERSION_CONFLICT") return null;
+  return <div className="notice">
+    <p>内容已被其他管理员修改。请重新读取最新版本后再编辑。</p>
+    <button type="button" className="button secondary" onClick={reload}>
+      关闭并刷新最新版本（放弃本次编辑）
+    </button>
+  </div>;
+}
 export function Feedback({error,notice}:{error?:string;notice?:string}){return <>{error&&<p role="alert" className="alert">{error}</p>}{notice&&<p role="status" className="notice">{notice}</p>}</>;}
 export function More({page}:{page:{nextCursor:string|null;more:()=>void;loading:boolean;error:string;items:unknown[]}}){return <><Feedback error={page.error}/>{!page.items.length&&<p className="ledger-empty">{page.loading?'正在读取…':'暂无符合条件的记录'}</p>}{page.nextCursor&&<button type="button" className="button secondary full" disabled={page.loading} onClick={()=>void page.more()}>加载更多</button>}</>;}
 export function Field({label,value,onChange,type='text',maxLength,required=false}:{label:string;value:string;onChange:(v:string)=>void;type?:string;maxLength?:number;required?:boolean}){return <label className="field">{label}{type==='textarea'?<textarea aria-label={label} maxLength={maxLength} value={value} required={required} onChange={e=>onChange(e.target.value)}/>:<input aria-label={label} type={type} maxLength={maxLength} value={value} required={required} onInput={e=>{if(type==='date'||type==='datetime-local')onChange(e.currentTarget.value);}} onChange={e=>onChange(e.target.value)}/>}</label>;}

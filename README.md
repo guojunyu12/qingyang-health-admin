@@ -4,7 +4,7 @@
 
 ## 启动
 
-使用 Node >=22.12，按 `pnpm-lock.yaml` 安装依赖（`pnpm install --frozen-lockfile`）。本工作区的类型检查和构建使用上级现有 node_modules，未重写锁文件；独立安装尚未验证。
+使用 Node >=22.12，按 `pnpm-lock.yaml` 安装依赖（`pnpm install --frozen-lockfile`）。独立锁安装、类型和构建验证见 `docs/integration/M05_整改记录_2026-10-23_后台浏览器.md`。
 
 ```sh
 API_INTERNAL_URL=http://127.0.0.1:3002 npm run dev
@@ -25,6 +25,6 @@ npm start
 - 运营消息草稿、发送和接收人记录；发送操作由运营人员自行确认。
 - 素材列表、封面选择、审计记录及 M01 正式图片上传；复用预签、校验和 Worker，不创建第二套存储。
 
-上述业务组件已接入正式接口路径，但浏览器管理员完整操作仍待验收；主窗口已完成真实 HTTP 管理权限、活动预约与运营消息测试。供应商、消息 Worker、素材读写、真实管理员权限及手机交互须由主整合窗口配套验收。
+后台提供两套独立浏览器验收：`pnpm test:e2e` 使用明确拦截的 API fixture；`pnpm test:e2e:live` 连接显式隔离测试库、M01 身份及统一 Worker，所需配置和实际证据见本轮整改记录。真实供应商和线上环境仍需单独验收。
 
-规范入口见 AGENTS.md 与 docs/integration/。无数据库变更；本轮不提交、不推送、不发布。
+规范入口见 AGENTS.md 与 docs/integration/。本轮无数据库变更；整改候选提交推送后交主整合窗口审核，未合 main、未部署。详见 [整改记录](docs/integration/M05_整改记录_2026-10-23.md)。
